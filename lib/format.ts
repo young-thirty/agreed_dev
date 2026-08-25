@@ -1,17 +1,18 @@
 // 화면에 값을 찍을 때 쓰는 표시 규칙. 날짜·금액 포맷을 한 곳에 모은다.
 
-import { NOW } from '@/mocks';
 import type { DecisionField } from '@/types';
 
-/** "10분 전" · "3시간 전" · "2일 전". 시연 기준 시각(NOW)을 기준으로 계산한다. */
+/** "10분 전" · "3시간 전" · "2일 전". */
 export function relativeTime(iso: string): string {
-  const diff = NOW - new Date(iso).getTime();
+  const diff = Date.now() - new Date(iso).getTime();
   if (diff < 60_000) return '방금 전';
   const minutes = Math.floor(diff / 60_000);
   if (minutes < 60) return `${minutes}분 전`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}시간 전`;
-  return `${Math.floor(hours / 24)}일 전`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}일 전`;
+  return formatDate(iso);
 }
 
 /** 2026.08.26 */

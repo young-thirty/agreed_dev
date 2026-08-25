@@ -1,32 +1,45 @@
 'use client';
 
-// 프로젝트 목록. 지금 사람 손이 필요한 메시지가 몇 건인지만 빠르게 보이면 된다.
+// 프로젝트 목록. 지금 사람 손이 필요한 티켓이 몇 건인지만 빠르게 보이면 된다.
 
 import Link from 'next/link';
-import { CodeXml, Plug } from 'lucide-react';
+import { LoaderCircle } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
 import { ProjectStatusBadge } from '@/components/StatusBadges';
 import { relativeTime } from '@/lib/format';
 
+const won = (n: number | null) => (n === null ? '금액 미정' : '₩' + n.toLocaleString('ko-KR'));
+
 export default function ProjectsPage() {
-  const { projects, inbounds, tickets, decisionOf } = useAppStore();
+  const { projects, workItems, loaded, error } = useAppStore();
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl px-8 py-7">
         <h1 className="text-xl font-semibold tracking-tight">프로젝트</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          고객 메시지는 등록된 메일 주소를 보고 프로젝트에 자동으로 분류됩니다.
+          고객 메시지는 등록된 메일 주소와 슬랙 채널을 보고 프로젝트에 분류됩니다.
         </p>
+
+        {error !== null && <p className="mt-8 text-sm text-ink-faint">{error}</p>}
+
+        {error === null && !loaded && (
+          <p className="mt-8 flex items-center gap-2 text-sm text-ink-faint">
+            <LoaderCircle className="size-4 animate-spin text-accent" />
+            프로젝트를 불러오는 중…
+          </p>
+        )}
+
+        {error === null && loaded && projects.length === 0 && (
+          <p className="mt-8 text-sm text-ink-faint">아직 프로젝트가 없습니다.</p>
+        )}
 
         <ul className="mt-6 flex flex-col gap-3">
           {projects.map((project) => {
-            const unanswered = inbounds.filter(
-              (i) => i.projectId === project.projectId && decisionOf(i.inboundId).sentAt === null,
-            ).length;
-            const activeTickets = tickets.filter(
-              (t) => t.projectId === project.projectId && t.status === 'Active',
-            ).length;
+            const tickets = workItems.filter((item) => item.ticket.projectId === project.projectId);
+            const activeTickets = tickets.filter((item) => item.ticket.status === 'Active').length;
+            const lastMessage = tickets.find((item) => item.ticket.lastCustomerMessage !== null)
+              ?.ticket.lastCustomerMessage;
 
             return (
               <li key={project.projectId}>
@@ -37,33 +50,32 @@ export default function ProjectsPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-ink">{project.name}</span>
                     <ProjectStatusBadge status={project.status} />
-                    {project.githubRepo !== null ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-ink-faint">
-                        <CodeXml className="size-3.5" />
-                        {project.githubRepo}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs text-ink-faint">
-                        <Plug className="size-3.5" />
-                        GitHub 미연결
-                      </span>
-                    )}
+                    <span className="ml-auto shrink-0 text-xs text-ink-faint">
+                      {relativeTime(project.updatedAt)}
+                    </span>
                   </div>
 
                   <p className="mt-1 text-sm text-ink-muted">
-                    {project.clientName} · {project.clientEmail}
+                    {project.clientName}
+                    {project.clientEmail !== null && ` · ${project.clientEmail}`}
                   </p>
 
-                  <p className="mt-2.5 truncate text-sm text-ink">
-                    “{project.lastMessage}”
-                    <span className="ml-2 text-xs text-ink-faint">
-                      {relativeTime(project.lastMessageAt)}
-                    </span>
+                  {lastMessage !== undefined && lastMessage !== null && (
+                    <p className="mt-2.5 truncate text-sm text-ink">“{lastMessage}”</p>
+                  )}
+
+                  <p className="mt-1.5 text-xs text-ink-faint">
+                    {project.startDate ?? '시작일 미정'} ~ {project.endDate ?? '종료일 미정'} ·{' '}
+                    {won(project.contractPrice)}
                   </p>
 
                   <div className="mt-3 flex items-center gap-4 text-xs">
-                    <span className={unanswered > 0 ? 'text-accent' : 'text-ink-faint'}>
-                      답변 안 한 메시지 {unanswered}건
+                    <span
+                      className={
+                        project.unansweredRequestCount > 0 ? 'text-accent' : 'text-ink-faint'
+                      }
+                    >
+                      답변 안 한 요청 {project.unansweredRequestCount}건
                     </span>
                     <span className="text-ink-faint">Active 티켓 {activeTickets}건</span>
                   </div>

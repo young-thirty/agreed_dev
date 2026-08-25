@@ -5,64 +5,72 @@
 //   1 고객 메시지 → 2 AI 분석 → 3 내 판단 → 4 답변 초안
 //
 // AI는 2번까지만 한다. 개발 상황 확인도 2번 안에서 사람이 누를 때만 돈다.
-// 티켓과 발송은 3·4번에서 사람이 누를 때만 일어난다.
+// 티켓 반영·분리와 발송 표시는 3·4번에서 사람이 누를 때만 일어나고, 그때 서버에 남는다.
 
-import { useCallback } from 'react';
+import { useState } from 'react';
 import { AnalysisCard } from '@/components/AnalysisCard';
 import { AnalysisRunner } from '@/components/AnalysisRunner';
-import { useAppStore } from '@/components/AppStore';
 import { CHANNEL_META } from '@/components/channelMeta';
 import { DecisionPanel } from '@/components/DecisionPanel';
 import { DevContextSection } from '@/components/DevContextSection';
 import { EvidenceList } from '@/components/EvidenceList';
 import { FlowSection } from '@/components/FlowSection';
 import { ReplyDraft } from '@/components/ReplyDraft';
+import { saveDecision } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
-import type { Inbound, Project, Ticket } from '@/types';
-
-const ANALYSIS_STEPS = ['과거 고객 대화 확인', '제안서 · 계약서 확인', '기존 티켓 확인'];
+import type { Handling, Inbound, InboundDecision, Project, Ticket } from '@/types';
 
 export function MessageFlow({
   inbound,
   project,
   ticket,
+  decision,
+  analyzed,
+  onChanged,
 }: {
   inbound: Inbound;
   project: Project;
   /** 이 메시지가 붙어 있는 티켓. */
   ticket: Ticket;
+  decision: InboundDecision;
+  /** 서버 분석이 끝났는지. */
+  analyzed: boolean;
+  /** 판단·발송이 서버에 반영된 뒤 상세를 다시 읽는다. */
+  onChanged: () => void;
 }) {
-  const {
-    tickets,
-    decisionOf,
-    isAnalyzed,
-    markAnalyzed,
-    hasDevRun,
-    runDev,
-    decideHandling,
-    clearHandling,
-    setDecisionValue,
-    setReplyText,
-    markSent,
-  } = useAppStore();
-
-  const onAnalyzed = useCallback(
-    () => markAnalyzed(inbound.inboundId),
-    [inbound.inboundId, markAnalyzed],
-  );
-  const onDevRun = useCallback(() => runDev(inbound.inboundId), [inbound.inboundId, runDev]);
-
+  const [message, setMessage] = useState<string | null>(null);
   const { analysis } = inbound;
-  const decision = decisionOf(inbound.inboundId);
-  const analyzed = isAnalyzed(inbound);
   const { icon: ChannelIcon, label: channelLabel } = CHANNEL_META[inbound.channel];
 
-  const relatedTicket = tickets.find((t) => t.ticketId === analysis.relatedTicketId) ?? null;
-  // 분리를 골랐다면 그때 만들어진 티켓.
-  const splitTicket =
-    decision.handling === 'create'
-      ? (tickets.find((t) => t.ticketId === decision.ticketId) ?? null)
-      : null;
+  async function choose(handling: Handling | null) {
+    setMessage(null);
+    const res = await saveDecision(ticket.ticketId, {
+      sourceMessageId: inbound.inboundId,
+      handling,
+      values: decision.values,
+      ticketProposal: handling === 'create' ? analysis.ticketProposal : null,
+    });
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    onChanged();
+  }
+
+  async function changeValue(fieldId: string, value: string) {
+    setMessage(null);
+    const res = await saveDecision(ticket.ticketId, {
+      sourceMessageId: inbound.inboundId,
+      handling: decision.handling,
+      values: { ...decision.values, [fieldId]: value },
+      ticketProposal: decision.handling === 'create' ? analysis.ticketProposal : null,
+    });
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    onChanged();
+  }
 
   return (
     <div>
@@ -74,8 +82,12 @@ export function MessageFlow({
             <span>·</span>
             <ChannelIcon className="size-3.5" />
             {channelLabel}
-            <span>·</span>
-            {inbound.fromName}
+            {inbound.fromName !== '' && (
+              <>
+                <span>·</span>
+                {inbound.fromName}
+              </>
+            )}
           </p>
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{inbound.body}</p>
         </div>
@@ -97,12 +109,7 @@ export function MessageFlow({
               missingInfo={analysis.missingInfo}
             />
 
-            <DevContextSection
-              dev={analysis.devContext}
-              repo={project.githubRepo}
-              hasRun={hasDevRun(inbound.inboundId)}
-              onRun={onDevRun}
-            />
+            <DevContextSection projectId={project.projectId} subject={ticket.title} />
 
             {analysis.evidence.length > 0 && (
               <div>
@@ -114,23 +121,30 @@ export function MessageFlow({
             )}
           </div>
         ) : (
-          <AnalysisRunner steps={ANALYSIS_STEPS} onDone={onAnalyzed} />
+          <AnalysisRunner onRefresh={onChanged} />
         )}
       </FlowSection>
 
       {/* 3 — 사람의 판단 */}
       {analyzed && (
         <FlowSection step={3} label="내 판단" hint="여기서부터는 사람이 정합니다">
-          <DecisionPanel
-            analysis={analysis}
-            decision={decision}
-            relatedTicket={relatedTicket}
-            currentTicket={ticket}
-            splitTicket={splitTicket}
-            onChoose={(handling) => decideHandling(inbound, handling)}
-            onClear={() => clearHandling(inbound.inboundId)}
-            onValueChange={(fieldId, value) => setDecisionValue(inbound.inboundId, fieldId, value)}
-          />
+          <div className="flex flex-col gap-3">
+            <DecisionPanel
+              analysis={analysis}
+              decision={decision}
+              relatedTicket={null}
+              currentTicket={ticket}
+              splitTicket={null}
+              onChoose={choose}
+              onClear={() => choose(null)}
+              onValueChange={changeValue}
+            />
+            {message !== null && (
+              <p className="rounded-md border border-line bg-surface px-3 py-2 text-xs text-ink-faint">
+                {message}
+              </p>
+            )}
+          </div>
         </FlowSection>
       )}
 
@@ -143,13 +157,14 @@ export function MessageFlow({
             </p>
           ) : (
             <ReplyDraft
-              drafts={analysis.drafts}
+              ticketId={ticket.ticketId}
+              sourceMessageId={inbound.inboundId}
               fields={analysis.decisionFields}
               values={decision.values}
-              editedText={decision.replyText}
+              selectedItems={[]}
+              savedReplyText={decision.replyText}
               sentAt={decision.sentAt}
-              onEdit={(text) => setReplyText(inbound.inboundId, text)}
-              onSend={() => markSent(inbound.inboundId)}
+              onSent={onChanged}
             />
           )}
         </FlowSection>

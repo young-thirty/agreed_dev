@@ -21,14 +21,14 @@ const STATUS_DOT: Record<ProjectStatus, string> = {
 export function Sidebar() {
   const pathname = usePathname();
   const resetAll = useResetAll();
-  const { projects, workItems, stageOf } = useAppStore();
+  const { projects, workItems } = useAppStore();
   const [projectsOpen, setProjectsOpen] = usePersistedState('sidebar-projects', true);
 
-  const todo = workItems.filter((item) => needsWork(stageOf(item))).length;
+  const todo = workItems.filter((item) => needsWork(item.workStage)).length;
 
   /** 이 프로젝트에서 사람 손이 필요한 건수. */
   const todoOf = (projectId: string) =>
-    workItems.filter((item) => item.ticket.projectId === projectId && needsWork(stageOf(item)))
+    workItems.filter((item) => item.ticket.projectId === projectId && needsWork(item.workStage))
       .length;
 
   const ticketsActive = pathname.startsWith('/tickets');
