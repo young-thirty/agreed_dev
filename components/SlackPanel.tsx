@@ -99,7 +99,12 @@ export function SlackPanel() {
     if (res.data.length === 0) return;
 
     oldestRef.current = res.data[res.data.length - 1].id;
-    setMessages((prev) => [...prev, ...res.data]);
+    // 개발 모드는 effect를 두 번 실행해서 poll이 겹쳐 호출될 수 있다. 같은 id가 섞여 들어와도
+    // 걸러지도록 병합 시점에 중복을 제거한다.
+    setMessages((prev) => {
+      const seen = new Set(prev.map((m) => m.id));
+      return [...prev, ...res.data.filter((m) => !seen.has(m.id))];
+    });
   }, [selectedTeamId, selectedChannelId]);
 
   // 채널이 바뀌면 처음부터 다시 받는다
