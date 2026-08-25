@@ -6,11 +6,14 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Circle, CircleCheck, Clock, CodeXml, FileText, GitPullRequest, Plug } from 'lucide-react';
+import {
+  ArrowLeft, Circle, CircleCheck, Clock, CodeXml, FileText, GitPullRequest, Paperclip, Plug,
+} from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
 import { CHANNEL_META } from '@/components/channelMeta';
 import { Badge } from '@/components/Badge';
 import { ProjectStatusBadge } from '@/components/StatusBadges';
+import { MaterialsDrawer } from '@/components/MaterialsDrawer';
 import { TicketCard } from '@/components/TicketCard';
 import { relativeTime } from '@/lib/format';
 import { documentsOf, repoSnapshotOf } from '@/mocks';
@@ -43,6 +46,7 @@ function ProjectWorkspace() {
   const highlightedTicketId = useSearchParams().get('ticket');
   const { projects, inbounds, tickets, ticketIdOf, decisionOf, setTicketStatus } = useAppStore();
   const [tab, setTab] = useState<Tab>('tickets');
+  const [materialsOpen, setMaterialsOpen] = useState(false);
 
   const project = projects.find((p) => p.projectId === id);
   if (project === undefined) {
@@ -77,6 +81,14 @@ function ProjectWorkspace() {
         <div className="mt-3 flex items-center gap-2">
           <h1 className="text-xl font-semibold tracking-tight">{project.name}</h1>
           <ProjectStatusBadge status={project.status} />
+          <button
+            type="button"
+            onClick={() => setMaterialsOpen(true)}
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-ink-muted transition-colors hover:bg-paper hover:text-ink"
+          >
+            <Paperclip className="size-3.5" />
+            주고받은 파일
+          </button>
         </div>
         <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-muted">
           {project.clientName} · {project.clientEmail}
@@ -253,6 +265,10 @@ function ProjectWorkspace() {
           </div>
         )}
       </div>
+
+      {materialsOpen && (
+        <MaterialsDrawer projectId={project.projectId} onClose={() => setMaterialsOpen(false)} />
+      )}
     </div>
   );
 }

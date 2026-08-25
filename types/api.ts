@@ -16,6 +16,8 @@ export type ProjectStatus = 'ACTIVE' | 'DRAFT' | 'COMPLETED';
 export type SourceChannel = 'GMAIL' | 'SLACK' | 'GITHUB';
 export type ProcessingStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 export type Direction = 'RECEIVED' | 'SENT';
+
+/** 자료(첨부 파일) 타입은 types/index.ts의 ProjectMaterial 쪽에 이미 있다. */
 export type DocumentType =
   | 'PROPOSAL'
   | 'CONTRACT'
@@ -104,25 +106,6 @@ export interface TicketDetail extends Ticket {
   solution: TicketSolution | null;
   sourceText: string | null;
   conversationDisplay: string | null;
-}
-
-/** GET /api/projects/{id}/materials */
-export interface ProjectMaterial {
-  materialId: string;
-  projectId: string;
-  ticketId: string | null;
-  fileName: string;
-  direction: Direction;
-  communicatedAt: string;
-  classificationStatus: ProcessingStatus;
-  documentType: DocumentType | null;
-  summary: string | null;
-  sourceChannel: SourceChannel;
-  mimeType: string | null;
-  sizeBytes: number | null;
-  conversationTitle: string | null;
-  senderDisplay: string | null;
-  hasFile: boolean;
 }
 
 /** POST /api/requests/{id}/checklist */
