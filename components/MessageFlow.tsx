@@ -15,6 +15,7 @@ import { DecisionPanel } from '@/components/DecisionPanel';
 import { DevContextSection } from '@/components/DevContextSection';
 import { EvidenceList } from '@/components/EvidenceList';
 import { FlowSection } from '@/components/FlowSection';
+import { MessageBody } from '@/components/MessageBody';
 import { ReplyDraft } from '@/components/ReplyDraft';
 import { saveDecision } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -91,7 +92,7 @@ export function MessageFlow({
               </>
             )}
           </p>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{inbound.body}</p>
+          <MessageBody body={inbound.body} className="text-sm leading-relaxed text-ink" />
         </div>
       </FlowSection>
 

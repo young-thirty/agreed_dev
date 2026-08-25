@@ -4,6 +4,7 @@
 // 하나의 요구가 여러 메시지에 걸쳐 어떻게 움직였는지가 여기서 보인다.
 
 import { CHANNEL_META } from '@/components/channelMeta';
+import { MessageBody } from '@/components/MessageBody';
 import { formatDateTime } from '@/lib/format';
 import type { HistoryEntry } from '@/types';
 
@@ -28,13 +29,13 @@ export function MessageHistory({ entries }: { entries: HistoryEntry[] }) {
               <span>{label}</span>
               <span className="ml-auto">{formatDateTime(entry.at)}</span>
             </div>
-            <p
-              className={`mt-2 whitespace-pre-wrap text-sm leading-relaxed ${
-                incoming ? 'text-ink' : 'text-ink-muted'
-              }`}
-            >
-              {text}
-            </p>
+            <div className="mt-2">
+              {incoming ? (
+                <MessageBody body={text} className="text-sm leading-relaxed text-ink" />
+              ) : (
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-muted">{text}</p>
+              )}
+            </div>
           </li>
         );
       })}
