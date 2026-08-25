@@ -82,10 +82,13 @@ export type Requirement = {
 };
 
 export type Contract = {
+  id: string;
   version: number;
   scope: string[];
   dueDate: string;
   amount: number;
+  /** 이 버전을 만든 요구사항. 최초 계약은 null이다. */
+  appliedRequirementId: string | null;
 };
 
 /** 계약 버전 간 변경분. 우측 화면의 diff 표시가 이 값을 그대로 그린다. */
