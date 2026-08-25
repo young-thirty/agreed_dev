@@ -3,6 +3,7 @@
 import { useResetAll } from '@/hooks/usePersistedState';
 import { EmailPanel } from '@/components/EmailPanel';
 import { EmailComposer } from '@/components/EmailComposer';
+import { SlackPanel } from '@/components/SlackPanel';
 
 export default function Home() {
   const resetAll = useResetAll();
@@ -28,6 +29,7 @@ export default function Home() {
 
       <EmailPanel />
       <EmailComposer />
+      <SlackPanel />
 
       <section className="rounded-lg border border-line bg-surface px-8 py-20 text-center text-ink-muted">
         아직 화면이 없습니다. 기능 명세가 확정되면 계약과 요구사항이 여기에 표시됩니다.
