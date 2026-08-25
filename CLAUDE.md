@@ -11,15 +11,18 @@
 
 | 작업 영역 | 함께 읽을 문서 |
 |---|---|
-| `app/api/`, `core/`, `infra/`, `types/` 수정 | **`CLAUDE_BE.md`** |
 | `app/page.tsx`, `app/layout.tsx`, `components/`, `app/globals.css` 수정 | **`CLAUDE_FE.md`** |
-| 양쪽에 걸치는 작업 | 둘 다 |
+| 서버 로직 | 이 저장소가 아니다. `young-thirty/agreed_be`로 간다 |
 
 AI 에이전트에게 작업을 시킬 때는 다음 문장을 프롬프트에 포함한다.
 
 ```
-CLAUDE.md와 CLAUDE_BE.md를 먼저 읽고 규약을 지켜서 작업해.
+CLAUDE.md와 CLAUDE_FE.md를 먼저 읽고 규약을 지켜서 작업해.
 ```
+
+> **`CLAUDE_BE.md`와 `ARCHITECTURE.md`는 이제 이 저장소의 규약이 아니다.**
+> 백엔드가 별도 저장소로 분리되면서 `agreed_be`의 `CLAUDE.md`·`ARCHITECTURE.md`로
+> 옮겨졌다. 기획 의도와 시연 시나리오는 `agreed_be/HANDOFF.md`에 있다.
 
 ---
 
@@ -39,11 +42,11 @@ CLAUDE.md와 CLAUDE_BE.md를 먼저 읽고 규약을 지켜서 작업해.
 
 ## 2. 절대 규칙
 
-1. **단일 레포다.** 프론트엔드와 백엔드가 한 Next.js 프로젝트 안에 있다. 별도 서버를 만들지 않는다.
-2. **DB를 쓰지 않는다.** 상태는 React 상태와 localStorage로 관리한다.
+1. **이 저장소는 프론트엔드 전용이다.** 백엔드 API는 별도 저장소(`young-thirty/agreed_be`, FastAPI)에 있다.
+2. **화면 상태는 localStorage로 관리한다.** 영속 데이터는 백엔드의 MongoDB가 들고 있고, 화면은 서버에서 받아온 것을 localStorage에 캐시한다.
 3. **테스트 코드를 작성하지 않는다.** 검증은 실행으로 한다.
 4. **인증·로그인이 없다.** 사용자 개념 자체가 없다.
-5. **`types/index.ts`가 공유 타입의 단일 원천이다.** 수정하려면 먼저 팀에 알린다.
+5. **`types/index.ts`는 백엔드의 `core/domain.py`를 따라간다.** 서버 응답 필드 이름이 원천이므로, 여기서 임의로 바꾸면 화면이 조용히 깨진다. 바꿔야 하면 먼저 백엔드에 알린다.
 6. **기능 명세가 확정된 범위 안에서 도메인 기능을 구현한다.** 확정되지 않은 범위는 임의로 확장하지 않는다.
 
 ---
@@ -105,34 +108,40 @@ AI 에이전트가 흔히 저지르는 실수를 줄이기 위한 규칙이다. 
 
 ```
 ├─ app/
-│  ├─ page.tsx              화면              → 프론트
-│  ├─ layout.tsx            레이아웃           → 프론트
-│  ├─ globals.css           디자인 토큰        → 프론트
-│  └─ api/                  서버 로직          → 백엔드
+│  ├─ page.tsx              화면
+│  ├─ layout.tsx            레이아웃
+│  └─ globals.css           디자인 토큰
 │
-├─ core/                    도메인 계층        → 백엔드
-│  └─ (프레임워크 무관 순수 TypeScript)
-│
-├─ infra/                   외부 의존 계층     → 백엔드
-│  ├─ llm/                  AI 호출
-│  └─ storage/              저장소 어댑터
-│
-├─ components/              UI 컴포넌트        → 프론트
-├─ types/index.ts           공유 타입          → 백엔드가 확정, 양쪽이 참조
-└─ lib/                     공용 유틸          → 수정 시 공지
+├─ components/              UI 컴포넌트
+├─ hooks/                   usePersistedState 등
+├─ types/index.ts           백엔드 응답 타입 (core/domain.py를 따라간다)
+└─ lib/                     api-client 등 공용 유틸
 ```
 
-### 담당 경계
+`app/api/`, `core/`, `infra/`는 백엔드 저장소로 옮겨졌다. 이 저장소에 서버 로직을 두지 않는다.
 
-- 프론트는 `app/api/`, `core/`, `infra/`를 수정하지 않는다.
-- 백엔드는 `components/`, `app/page.tsx`를 수정하지 않는다.
-- `types/index.ts`와 `lib/`는 공용이다. 바꾸기 전에 알린다.
+### 서버와의 경계
 
-### 계층 규칙
+서버는 `young-thirty/agreed_be`(FastAPI)다. 이어지는 지점은 두 개뿐이다.
 
-**`core/`는 프레임워크를 import하지 않는다.** `next`, `react`, `fetch`가 등장하면 안 된다. 순수 함수와 타입만 둔다. 이 규칙이 지켜져야 나중에 저장소나 프레임워크를 바꿀 때 도메인 로직을 그대로 옮길 수 있다.
+1. **응답 규약** — 항상 `{ ok: true, data }` 또는 `{ ok: false, error }`
+2. **필드 이름** — 백엔드가 camelCase로 내려준다. `types/index.ts`가 그 이름을 그대로 쓴다
 
-외부에 의존하는 코드는 전부 `infra/`에 둔다.
+둘 중 하나라도 어긋나면 양쪽이 함께 깨진다. 바꾸려면 먼저 알린다.
+
+### API 주소
+
+```
+POST /api/analyze                              대화 → 요구사항 카드
+GET  /api/contract                             현재 계약
+POST /api/contract                             최초 계약 등록
+POST /api/contract/apply                       합의된 요구사항 반영 (+ diff)
+GET  /api/requirements                         요구사항 목록
+GET  /api/requirements/{id}/allowed            고를 수 있는 상태
+POST /api/requirements/{id}/transition         상태 변경 (+ 금액·납기 확정)
+```
+
+전체 명세는 백엔드를 띄운 뒤 `http://localhost:8000/docs`에서 볼 수 있다.
 
 ---
 
@@ -143,16 +152,18 @@ AI 에이전트가 흔히 저지르는 실수를 줄이기 위한 규칙이다. 
 | 프레임워크 | Next.js (App Router) |
 | 언어 | TypeScript |
 | 스타일 | Tailwind CSS |
-| 검증 | Zod |
-| AI | Anthropic API |
-| 저장소 | localStorage (DB 없음) |
+| 화면 상태 | React 상태 + localStorage |
+| 서버 | 별도 저장소의 FastAPI API (`http://localhost:8000`) |
 | 배포 | Vercel |
+
+AI 호출과 DB는 백엔드가 담당한다. 이 저장소에는 API 키가 존재하지 않는다.
 
 ### 인프라 규칙
 
-- 배포는 Vercel 한 곳이다. 별도 서버나 컨테이너를 만들지 않는다.
-- 비밀 키는 `.env.local`에만 둔다. 클라이언트 코드에서 참조하지 않는다.
-- 환경변수에 `NEXT_PUBLIC_` 접두사를 붙이면 브라우저에 노출된다. API 키에는 절대 붙이지 않는다.
+- 프론트 배포는 Vercel이다. 백엔드는 별도로 뜬다.
+- **API 키를 이 저장소에 두지 않는다.** AI 호출은 전부 백엔드를 거친다.
+- 환경변수에 `NEXT_PUBLIC_` 접두사를 붙이면 브라우저에 노출된다. 백엔드 주소처럼 노출돼도 되는 값에만 쓴다.
+- 프론트를 배포하고 백엔드를 로컬에 두면 https → http라 브라우저가 차단한다. **둘 다 로컬이거나 둘 다 배포다.**
 - 새 라이브러리를 추가하기 전에 팀에 묻는다.
 
 ---
@@ -219,8 +230,8 @@ docs: 규약 문서 추가
 
 - 테스트 코드
 - 로그인, 인증, 사용자 관리
-- 데이터베이스, ORM, 마이그레이션
-- 별도 백엔드 서버
+- 프론트에서의 직접 AI 호출 (백엔드를 거친다)
+- 전역 상태 라이브러리 (Redux, Zustand, Recoil)
 - 모바일 반응형
 - 다크 모드
 - 국제화
