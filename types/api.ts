@@ -117,3 +117,12 @@ export interface ChecklistResult {
 export interface ReplyDraftResult {
   body: string;
 }
+
+/** POST /api/auth/signup·login, GET /api/auth/me 가 data.user로 내려주는 값. */
+export interface UserSummary {
+  userId: string;
+  name: string;
+  email: string;
+  phoneNumber: string | null;
+  createdAt: string;
+}
