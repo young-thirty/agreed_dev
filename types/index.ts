@@ -331,6 +331,8 @@ export type MaterialDocumentType =
 export interface ProjectMaterial {
   materialId: string;
   projectId: string;
+  /** 어느 티켓의 대화에 딸려온 파일인지. 프로젝트 전체 자료는 null이다. */
+  ticketId: string | null;
   fileName: string;
   direction: 'RECEIVED' | 'SENT';
   communicatedAt: string; // ISO

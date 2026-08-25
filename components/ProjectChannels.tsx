@@ -73,9 +73,8 @@ export function ProjectChannels({
   }
 
   return (
-    <section className="mt-6">
-      <h2 className="text-sm font-medium text-ink">채널 연결</h2>
-      <p className="mt-1 text-xs text-ink-faint">
+    <section>
+      <p className="text-xs text-ink-faint">
         여기 등록한 주소와 채널로 들어온 대화만 이 프로젝트로 모입니다.
       </p>
 

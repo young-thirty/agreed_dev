@@ -26,7 +26,7 @@ export function TicketCard({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-ink-faint">{ticket.ticketId}</span>
+            <span className="font-mono text-xs text-ink-faint">{ticket.ticketCode}</span>
             <Badge tone="neutral">{ticket.category}</Badge>
           </div>
           <p className="mt-1.5 text-sm font-medium text-ink">{ticket.title}</p>
