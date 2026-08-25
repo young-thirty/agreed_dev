@@ -76,7 +76,7 @@ export default function DashboardPage() {
               <li key={p.id}>
                 <Link
                   href={`/projects/${p.id}`}
-                  className={`block rounded-lg border border-line bg-surface px-5 py-4 transition-colors hover:border-ink-faint ${
+                  className={`block rounded-lg bg-surface px-5 py-4 shadow-card transition-shadow hover:shadow-card-hover ${
                     highlight ? 'border-l-2 border-l-accent' : ''
                   }`}
                 >

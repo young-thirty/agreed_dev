@@ -80,8 +80,8 @@ export default function ProjectWorkspace() {
           )}
         </div>
 
-        {/* 탭 */}
-        <div className="mt-5 flex gap-1">
+        {/* 탭 — 토스식 세그먼트 컨트롤(회색 트랙 위 흰 활성 pill) */}
+        <div className="mt-5 inline-flex gap-1 rounded-lg bg-paper p-1">
           {(
             [
               ['requests', '요청 분석'],
@@ -92,8 +92,10 @@ export default function ProjectWorkspace() {
               key={key}
               type="button"
               onClick={() => setTab(key)}
-              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
-                tab === key ? 'bg-paper font-medium text-ink' : 'text-ink-muted hover:bg-paper'
+              className={`rounded-md px-3 py-1.5 text-sm transition-all ${
+                tab === key
+                  ? 'bg-surface font-medium text-ink shadow-pop'
+                  : 'text-ink-muted hover:text-ink'
               }`}
             >
               {label}
@@ -130,7 +132,7 @@ export default function ProjectWorkspace() {
             selectedId={selectedId}
             onSelect={setSelectedId}
           />
-          <div className="rounded-lg border border-line bg-surface p-5">
+          <div className="rounded-lg bg-surface p-5 shadow-card">
             {selected ? (
               <AnalysisPanel
                 key={selected.id}

@@ -27,7 +27,7 @@ export function DocumentsPanel({
             <div
               key={doc.id}
               className={`rounded-md border p-3 transition-colors ${
-                on ? 'border-accent bg-warn-soft' : 'border-line bg-surface'
+                on ? 'border-accent bg-accent-soft' : 'border-line bg-surface'
               }`}
             >
               <div className="flex items-start gap-2.5">

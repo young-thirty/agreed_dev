@@ -1,28 +1,50 @@
 @import 'tailwindcss';
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
 /*
  * 색은 여기에서만 정의한다. 컴포넌트에 hex 값을 직접 적지 않는다.
  * 팔레트를 바꾸려면 이 블록 한 곳만 고친다.
+ *
+ * 방향: 토스(TDS) 계열. 무채색 그레이가 베이스이고, 파랑(accent)은 면이 아니라
+ * 포인트(주요 액션·선택 강조)로만 쓴다. 상태색은 연한 틴트 배경(-soft)+진한 텍스트로 표현한다.
  */
 @theme {
-  --color-paper: #faf9f5; /* 화면 배경 */
-  --color-surface: #ffffff; /* 카드, 패널 표면 */
-  --color-line: #e5e3dc; /* 구분선, 테두리 */
-  --color-ink: #1a1a18; /* 본문 텍스트 */
-  --color-ink-muted: #6b6b64; /* 보조 설명 텍스트 */
-  --color-ink-faint: #9a9a90; /* 더 흐린 메타 텍스트 */
-  --color-accent: #b4552d; /* 강조. 주요 동작 버튼 */
-  --color-accent-hover: #9c471f; /* 강조 버튼 hover */
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 
-  /* 상태 색. 배지·표식에만 쓴다. soft는 배경, 진한 값은 텍스트/점. */
-  --color-warn: #a6631b; /* 확인 필요 */
-  --color-warn-soft: #f6ecdc;
-  --color-danger: #a33a2a; /* 범위 변경 위험 */
-  --color-danger-soft: #f6e3de;
-  --color-success: #3f6b45; /* 범위 내·연결됨·활성 */
-  --color-success-soft: #e4ede4;
-  --color-info: #3a5a86; /* 정보 */
-  --color-info-soft: #e2e9f2;
+  --color-paper: #f9fafb; /* 화면 배경 (연한 회색) */
+  --color-surface: #ffffff; /* 카드, 패널 표면 */
+  --color-white: #ffffff;
+  --color-line: #e5e8eb; /* 구분선, 테두리 (아주 옅게) */
+  --color-ink: #191f28; /* 본문 텍스트 (gray900) */
+  --color-ink-muted: #4e5968; /* 보조 설명 텍스트 (gray700) */
+  --color-ink-faint: #8b95a1; /* 더 흐린 메타 텍스트 (gray500) */
+
+  --color-accent: #3182f6; /* 포인트 파랑. 주요 동작·핵심 강조에만 */
+  --color-accent-hover: #1b64da; /* 강조 버튼 hover */
+  --color-accent-soft: #e8f3ff; /* 선택·강조 틴트 배경 (파랑은 면적으로 쓰지 않는다) */
+
+  /* 상태 색. -soft는 연한 배경, 진한 값은 텍스트/점/아이콘. */
+  --color-warn: #e67700; /* 확인 필요 (앰버) */
+  --color-warn-soft: #fff3e0;
+  --color-danger: #f04452; /* 범위 변경 위험 (토스 레드) */
+  --color-danger-soft: #fdecee;
+  --color-success: #15c47e; /* 범위 내·연결됨·활성 (토스 그린) */
+  --color-success-soft: #e7f7ef;
+  --color-info: #3182f6; /* 정보 (파랑) */
+  --color-info-soft: #e8f3ff;
+
+  /* 라운드는 토스 느낌으로 넉넉하게 (Tailwind rounded-md / rounded-lg 재정의) */
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /*
+   * 카드는 하드 보더 대신 아주 옅은 그림자로 띄운다(토스 시그니처).
+   * shadow-card: 기본 카드, shadow-card-hover: hover 시 살짝 떠오름, shadow-pop: 세그먼트 활성 pill.
+   */
+  --shadow-card: 0 1px 2px rgba(17, 24, 39, 0.04), 0 2px 8px rgba(17, 24, 39, 0.05);
+  --shadow-card-hover: 0 2px 4px rgba(17, 24, 39, 0.06), 0 8px 20px rgba(17, 24, 39, 0.08);
+  --shadow-pop: 0 1px 3px rgba(17, 24, 39, 0.1);
 }
 
 /* 모션 최소화를 켠 사용자에게는 애니메이션을 걷어낸다 */

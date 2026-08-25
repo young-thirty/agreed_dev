@@ -31,16 +31,16 @@ export function ResponseComposer({ questions }: { questions: string[] }) {
 
   return (
     <div>
-      <div className="mb-2 flex flex-wrap gap-1">
+      <div className="mb-2 inline-flex flex-wrap gap-1 rounded-lg bg-paper p-1">
         {TONE_OPTIONS.map((opt) => (
           <button
             key={opt.value}
             type="button"
             onClick={() => setTone(opt.value)}
-            className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
+            className={`rounded-md px-2.5 py-1 text-xs transition-all ${
               tone === opt.value
-                ? 'border-accent bg-warn-soft text-ink'
-                : 'border-line text-ink-muted hover:bg-paper'
+                ? 'bg-surface font-medium text-ink shadow-pop'
+                : 'text-ink-muted hover:text-ink'
             }`}
           >
             {opt.label}

@@ -98,7 +98,7 @@ export function AnalysisPanel({
                   type="button"
                   onClick={() => onHighlightDoc(on ? null : ev.sourceDocId)}
                   className={`rounded-md border p-3 text-left transition-colors ${
-                    on ? 'border-accent bg-warn-soft' : 'border-line bg-surface hover:bg-paper'
+                    on ? 'border-accent bg-accent-soft' : 'border-line bg-surface hover:bg-paper'
                   }`}
                 >
                   <p className="text-xs font-medium text-ink-muted">{ev.sourceLabel}</p>
