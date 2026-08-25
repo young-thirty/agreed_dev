@@ -6,9 +6,10 @@
 // 그래서 이메일을 여러 개 등록하는 것도 여기서 행을 늘리는 일로 끝난다.
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { GitBranch, LoaderCircle, Mail, MessageSquare, Plus, type LucideIcon } from 'lucide-react';
+import { GitBranch, Mail, MessageSquare, Plus, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/Button';
+import { ChannelSync } from '@/components/ChannelSync';
+import { ChannelTextForm } from '@/components/ChannelTextForm';
 import { SlackChannelPicker } from '@/components/SlackChannelPicker';
 import { createSourceLink, getGmailStatus, type SourceLinkInput } from '@/lib/api';
 import type { SourceChannel, SourceLink } from '@/types';
@@ -21,8 +22,6 @@ const CHANNEL: Record<SourceChannel, { label: string; icon: LucideIcon; addLabel
 
 const ORDER: SourceChannel[] = ['GMAIL', 'SLACK', 'GITHUB'];
 
-const INPUT_CLASS =
-  'w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:bg-surface focus:outline-3 focus:outline-accent-soft';
 
 /** 아직 한 줄도 없는 채널. 프로젝트 설정이 덜 끝났다는 뜻이다. */
 export function missingChannels(links: SourceLink[]): SourceChannel[] {
@@ -33,15 +32,19 @@ export function ProjectChannels({
   projectId,
   links,
   onAdded,
+  onSynced,
 }: {
   projectId: string;
   links: SourceLink[];
   /** 등록에 성공하면 새 연결을 올려보낸다. 목록은 화면이 들고 있다. */
   onAdded: (link: SourceLink) => void;
+  /** 분석이 끝나 티켓이 생겼을 수 있을 때. */
+  onSynced: () => void;
 }) {
   const [open, setOpen] = useState<SourceChannel | null>(null);
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
+  const [justAdded, setJustAdded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // 메일은 계정을 먼저 연결해야 읽는다. 저장소는 서버 토큰으로 읽으므로 연결이 필요 없다.
   const [gmail, setGmail] = useState<string | null>(null);
@@ -64,6 +67,7 @@ export function ProjectChannels({
     setBusy(false);
     if (!res.ok) return setError(res.error);
     onAdded(res.data);
+    setJustAdded(res.data.sourceLinkId);
     setOpen(null);
     setValue('');
   }
@@ -106,8 +110,20 @@ export function ProjectChannels({
               {rows.length > 0 && (
                 <ul className="mt-2 flex flex-col gap-1">
                   {rows.map((link) => (
-                    <li key={link.sourceLinkId} className="text-sm text-ink-muted">
+                    <li
+                      key={link.sourceLinkId}
+                      className="flex flex-wrap items-center gap-2 text-sm text-ink-muted"
+                    >
                       {link.displayName}
+                      {/* 저장소는 대화를 가져오지 않는다. 물어볼 때만 읽는다. */}
+                      {channel !== 'GITHUB' && (
+                        <ChannelSync
+                          projectId={projectId}
+                          link={link}
+                          autoStart={link.sourceLinkId === justAdded}
+                          onDone={onSynced}
+                        />
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -129,7 +145,7 @@ export function ProjectChannels({
                       }
                     />
                   ) : (
-                    <TextForm
+                    <ChannelTextForm
                       channel={channel}
                       value={value}
                       onChange={setValue}
@@ -162,79 +178,5 @@ export function ProjectChannels({
         })}
       </ul>
     </section>
-  );
-}
-
-/** 이메일과 저장소는 한 칸만 받는다. 이름은 입력값을 그대로 쓴다. */
-function TextForm({
-  channel,
-  value,
-  onChange,
-  busy,
-  gmail,
-  onCancel,
-  onSubmit,
-}: {
-  channel: 'GMAIL' | 'GITHUB';
-  value: string;
-  onChange: (next: string) => void;
-  busy: boolean;
-  gmail: string | null;
-  onCancel: () => void;
-  onSubmit: () => void;
-}) {
-  const isEmail = channel === 'GMAIL';
-  const trimmed = value.trim();
-  // 저장소는 owner/repo 형식이어야 서버가 받는다. 보내기 전에 여기서 막는다.
-  const ready = isEmail ? trimmed.includes('@') : trimmed.split('/').length === 2;
-
-  if (isEmail && gmail === null) {
-    return (
-      <p className="text-xs text-ink-faint">
-        Gmail이 아직 연결되지 않았습니다.{' '}
-        <Link href="/settings" className="text-accent hover:underline">
-          설정
-        </Link>
-        에서 연결한 뒤 주소를 등록할 수 있습니다.
-      </p>
-    );
-  }
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (ready && !busy) onSubmit();
-      }}
-      className="flex flex-col gap-2"
-    >
-      <input
-        aria-label={isEmail ? '고객 이메일 주소' : '저장소 이름'}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={isEmail ? 'client@example.com' : 'owner/repo'}
-        className={INPUT_CLASS}
-      />
-      <p className="text-xs text-ink-faint">
-        {isEmail
-          ? `${gmail} 계정으로 이 주소와 주고받은 메일을 읽습니다.`
-          : '공개 저장소이거나 서버에 권한이 있는 저장소여야 읽습니다.'}
-      </p>
-      <div className="flex gap-2">
-        <Button size="sm" variant="primary" type="submit" disabled={!ready || busy}>
-          {busy ? (
-            <>
-              <LoaderCircle className="size-3.5 animate-spin" />
-              등록하는 중…
-            </>
-          ) : (
-            '등록'
-          )}
-        </Button>
-        <Button size="sm" variant="ghost" type="button" onClick={onCancel} disabled={busy}>
-          취소
-        </Button>
-      </div>
-    </form>
   );
 }

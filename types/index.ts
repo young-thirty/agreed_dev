@@ -69,6 +69,9 @@ export interface SourceLink {
   updatedAt: string;
 }
 
+/** 서버가 백그라운드로 도는 일의 진행 상태. */
+export type ProcessingStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
 /** 프로젝트 컨텍스트로 등록된 문서. AI가 근거를 찾는 곳이다. */
 export interface ProjectDocument {
   id: string;
@@ -313,8 +316,8 @@ export interface InboundDecision {
 /** 자료가 들어온 채널. GITHUB은 저장소 대화라 파일 아카이브에는 잘 안 나온다. */
 export type MaterialSourceChannel = SourceChannel;
 
-/** 자료 분류 진행 상태. */
-export type MaterialClassificationStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+/** 자료 분류 진행 상태. 분석 실행(AnalysisRun)도 같은 값을 쓴다. */
+export type MaterialClassificationStatus = ProcessingStatus;
 
 /** AI가 붙인 문서 종류. 분류가 끝나기 전에는 null이다. */
 export type MaterialDocumentType =

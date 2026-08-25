@@ -7,6 +7,7 @@ import type {
   Handling,
   InboundDecision,
   Project,
+  ProcessingStatus,
   ProjectMaterial,
   SourceLink,
   TicketCategory,
@@ -131,6 +132,27 @@ export interface SlackChannel {
 
 export function listSlackChannels(teamId: string): Promise<ApiResult<SlackChannel[]>> {
   return post<SlackChannel[]>('/api/slack/channels', { teamId });
+}
+
+/**
+ * 이 연결에서 대화를 가져온다. 새 대화는 서버가 분석하고, 분석이 끝나면 티켓이 된다.
+ * GitHub 연결에는 쓸 수 없다(서버가 400을 준다).
+ */
+export function syncSourceLink(
+  projectId: string,
+  sourceLinkId: string,
+): Promise<ApiResult<{ newMessageCount: number; analysisRunIds: string[] }>> {
+  return post<{ newMessageCount: number; analysisRunIds: string[] }>(
+    `/api/projects/${projectId}/source-links/${sourceLinkId}/sync`,
+    {},
+  );
+}
+
+/** 분석 한 건의 진행 상태. 티켓이 언제 생기는지 이걸로 안다. */
+export function getAnalysisRun(
+  analysisRunId: string,
+): Promise<ApiResult<{ status: ProcessingStatus }>> {
+  return get<{ status: ProcessingStatus }>(`/api/analysis-runs/${analysisRunId}`);
 }
 
 /**

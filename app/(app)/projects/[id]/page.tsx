@@ -20,7 +20,7 @@ const won = (n: number | null) => (n === null ? '금액 미정' : '₩' + n.toLo
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
-  const { projects, workItems, loaded, error, changeTicketStatus } = useAppStore();
+  const { projects, workItems, loaded, error, changeTicketStatus, reload } = useAppStore();
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
@@ -102,6 +102,7 @@ export default function ProjectPage() {
           projectId={project.projectId}
           links={sourceLinks}
           onAdded={(link) => setSourceLinks((prev) => [...prev, link])}
+          onSynced={reload}
         />
 
         <div className="mt-6">
