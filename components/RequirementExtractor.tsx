@@ -13,7 +13,7 @@ import { usePersistedState } from '@/hooks/usePersistedState';
 import { Badge, type BadgeTone } from './Badge';
 import { Button } from './Button';
 import { ReconnectGmailModal } from './ReconnectGmailModal';
-import type { AnalyzeResult, Requirement, RequirementStatus } from '@/types';
+import type { AnalyzeResult, Project, ProjectStatus, Requirement, RequirementStatus } from '@/types';
 
 /** 상태별 색. 사람이 판단할 거리가 남은 쪽을 눈에 띄게 둔다. */
 const STATUS_TONE: Record<RequirementStatus, BadgeTone> = {
@@ -28,23 +28,62 @@ const STATUS_TONE: Record<RequirementStatus, BadgeTone> = {
   완료: 'success',
 };
 
+/** 화면의 프로젝트 상태를 백엔드 표기로 바꾼다. */
+const BACKEND_STATUS: Record<ProjectStatus, string> = {
+  draft: 'DRAFT',
+  active: 'ACTIVE',
+  completed: 'COMPLETED',
+};
+
 export function RequirementExtractor({
-  projectId,
+  project,
   clientEmail,
 }: {
-  projectId: string;
+  project: Project;
   clientEmail: string;
 }) {
   const [requirements, setRequirements] = useState<Requirement[] | null>(null);
   const [analyzedCount, setAnalyzedCount] = useState(0);
-  const [dismissed, setDismissed] = usePersistedState<string[]>(`dismissed:${projectId}`, []);
+  const [dismissed, setDismissed] = usePersistedState<string[]>(`dismissed:${project.id}`, []);
+  // 화면의 프로젝트는 목 데이터라 백엔드 id가 없다. 처음 분석할 때 만들고 그 id를 기억한다.
+  const [backendProjectId, setBackendProjectId] = usePersistedState<string | null>(
+    `backendProject:${project.id}`,
+    null,
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [reconnect, setReconnect] = useState(false);
 
+  /** 분석은 프로젝트에 묶인다. 없으면 화면의 프로젝트 정보로 하나 만든다. */
+  async function ensureBackendProject(): Promise<string | null> {
+    if (backendProjectId !== null) return backendProjectId;
+
+    const created = await post<{ projectId: string }>('/api/projects', {
+      name: project.name,
+      clientName: project.clientName,
+      startDate: project.startDate,
+      endDate: project.endDate,
+      contractPrice: project.budget,
+      status: BACKEND_STATUS[project.status],
+    });
+    if (!created.ok) {
+      setMessage(created.error);
+      return null;
+    }
+
+    setBackendProjectId(created.data.projectId);
+    return created.data.projectId;
+  }
+
   async function analyze() {
     setLoading(true);
     setMessage(null);
+
+    const analyzedProjectId = await ensureBackendProject();
+    if (analyzedProjectId === null) {
+      setLoading(false);
+      return;
+    }
 
     const inbox = await loadClientEmails(clientEmail);
     if (!inbox.ok) {
@@ -62,7 +101,11 @@ export function RequirementExtractor({
       return;
     }
 
-    const result = await post<AnalyzeResult>('/api/analyze', { rawText, channel: '이메일' });
+    const result = await post<AnalyzeResult>('/api/analyze', {
+      projectId: analyzedProjectId,
+      rawText,
+      channel: '이메일',
+    });
     setLoading(false);
     if (!result.ok) {
       setMessage(result.error);

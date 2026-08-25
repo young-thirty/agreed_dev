@@ -130,7 +130,7 @@ export default function ProjectWorkspace() {
       ) : project.clientEmail ? (
         // 고객 메일이 연결된 프로젝트는 목 요청 대신 실제 메일에서 요구사항을 뽑는다.
         <div className="p-8">
-          <RequirementExtractor projectId={project.id} clientEmail={project.clientEmail} />
+          <RequirementExtractor project={project} clientEmail={project.clientEmail} />
         </div>
       ) : requests.length === 0 ? (
         <div className="flex flex-1 items-center justify-center p-10 text-center text-sm text-ink-muted">
