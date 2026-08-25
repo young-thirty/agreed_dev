@@ -7,14 +7,13 @@
 import { useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 import { post } from '@/lib/api-client';
+import { loadClientEmails } from '@/lib/client-emails';
 import { buildRawText, humanEmails } from '@/lib/email-clean';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { Badge, type BadgeTone } from './Badge';
 import { Button } from './Button';
+import { ReconnectGmailModal } from './ReconnectGmailModal';
 import type { AnalyzeResult, Requirement, RequirementStatus } from '@/types';
-import type { CompanyGroup, RawEmail } from '@/types/integrations';
-
-const MAX_MESSAGES = 100;
 
 /** 상태별 색. 사람이 판단할 거리가 남은 쪽을 눈에 띄게 둔다. */
 const STATUS_TONE: Record<RequirementStatus, BadgeTone> = {
@@ -29,16 +28,6 @@ const STATUS_TONE: Record<RequirementStatus, BadgeTone> = {
   완료: 'success',
 };
 
-/** 회사/발신인 트리에서 이 주소 하나와 주고받은 메일만 뽑는다. */
-function clientEmails(groups: CompanyGroup[], address: string): RawEmail[] {
-  const target = address.toLowerCase();
-  return (
-    groups
-      .flatMap((company) => company.senders)
-      .find((sender) => sender.address.toLowerCase() === target)?.emails ?? []
-  );
-}
-
 export function RequirementExtractor({
   projectId,
   clientEmail,
@@ -51,19 +40,21 @@ export function RequirementExtractor({
   const [dismissed, setDismissed] = usePersistedState<string[]>(`dismissed:${projectId}`, []);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reconnect, setReconnect] = useState(false);
 
   async function analyze() {
     setLoading(true);
     setMessage(null);
 
-    const inbox = await post<CompanyGroup[]>('/api/email/messages', { maxMessages: MAX_MESSAGES });
+    const inbox = await loadClientEmails(clientEmail);
     if (!inbox.ok) {
       setLoading(false);
       setMessage(inbox.error);
+      setReconnect(inbox.reconnect);
       return;
     }
 
-    const emails = humanEmails(clientEmails(inbox.data, clientEmail));
+    const emails = humanEmails(inbox.emails);
     const rawText = buildRawText(emails);
     if (rawText === '') {
       setLoading(false);
@@ -145,6 +136,8 @@ export function RequirementExtractor({
           ))}
         </ul>
       )}
+
+      {reconnect && <ReconnectGmailModal onClose={() => setReconnect(false)} />}
     </div>
   );
 }

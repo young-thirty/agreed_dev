@@ -4,11 +4,10 @@
 // 이 프로젝트의 clientEmail 한 명과 주고받은 메일만 걸러서 평평한 목록으로 보여준다.
 
 import { useCallback, useEffect, useState } from 'react';
-import { post } from '@/lib/api-client';
+import { loadClientEmails } from '@/lib/client-emails';
 import { Button } from './Button';
-import type { CompanyGroup, RawEmail } from '@/types/integrations';
-
-const MAX_MESSAGES = 100;
+import { ReconnectGmailModal } from './ReconnectGmailModal';
+import type { RawEmail } from '@/types/integrations';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('ko-KR', {
@@ -20,37 +19,32 @@ function formatDate(iso: string): string {
   });
 }
 
-/** 회사/발신인 트리에서 이 주소 하나와 주고받은 메일만 뽑아 최신순으로 편다. */
-function emailsWith(groups: CompanyGroup[], address: string): RawEmail[] {
-  const target = address.toLowerCase();
-  for (const company of groups) {
-    const sender = company.senders.find((s) => s.address.toLowerCase() === target);
-    if (sender) return sender.emails;
-  }
-  return [];
-}
-
 export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
   const [emails, setEmails] = useState<RawEmail[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reconnect, setReconnect] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const res = await post<CompanyGroup[]>('/api/email/messages', { maxMessages: MAX_MESSAGES });
-    setLoading(false);
+  const load = useCallback(
+    async (refresh: boolean) => {
+      setLoading(true);
+      const res = await loadClientEmails(clientEmail, { refresh });
+      setLoading(false);
 
-    if (!res.ok) {
-      setMessage(res.error);
-      setEmails([]);
-      return;
-    }
-    setMessage(null);
-    setEmails(emailsWith(res.data, clientEmail));
-  }, [clientEmail]);
+      if (!res.ok) {
+        setMessage(res.error);
+        setEmails([]);
+        setReconnect(res.reconnect);
+        return;
+      }
+      setMessage(null);
+      setEmails(res.emails);
+    },
+    [clientEmail],
+  );
 
   useEffect(() => {
-    load();
+    load(false);
   }, [load]);
 
   return (
@@ -60,7 +54,7 @@ export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
           <h2 className="text-sm font-semibold text-ink">고객 이메일</h2>
           <p className="text-xs text-ink-faint">{clientEmail}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={() => load(true)} disabled={loading}>
           {loading ? '확인 중…' : '새로고침'}
         </Button>
       </div>
@@ -86,6 +80,8 @@ export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
           </li>
         ))}
       </ul>
+
+      {reconnect && <ReconnectGmailModal onClose={() => setReconnect(false)} />}
     </div>
   );
 }
