@@ -5,20 +5,16 @@
 
 import { CHANNEL_META } from '@/components/channelMeta';
 import { formatDateTime } from '@/lib/format';
-import type { Channel, Inbound } from '@/types';
-
-export type HistoryEntry =
-  | { kind: 'in'; at: string; inbound: Inbound }
-  | { kind: 'out'; at: string; text: string; channel: Channel };
+import type { HistoryEntry } from '@/types';
 
 export function MessageHistory({ entries }: { entries: HistoryEntry[] }) {
   return (
     <ul className="flex flex-col gap-2">
       {entries.map((entry, i) => {
         const incoming = entry.kind === 'in';
-        const channel = incoming ? entry.inbound.channel : entry.channel;
+        const channel = incoming ? entry.inbound.channel : entry.outbound.channel;
         const { icon: Icon, label } = CHANNEL_META[channel];
-        const text = incoming ? entry.inbound.body : entry.text;
+        const text = incoming ? entry.inbound.body : entry.outbound.body;
 
         return (
           <li

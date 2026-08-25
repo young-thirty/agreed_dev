@@ -21,13 +21,15 @@ export interface Project {
   projectId: string;
   name: string;
   clientName: string;
-  clientEmail: string;
+  clientEmail: string | null;
+  description: string;
+  startDate: string | null; // YYYY-MM-DD
+  endDate: string | null;
+  contractPrice: number | null;
+  unansweredRequestCount: number;
+  createdAt: string; // ISO
+  updatedAt: string;
   status: ProjectStatus;
-  /** null이면 GitHub 미연결. 연결돼 있으면 owner/repo. */
-  githubRepo: string | null;
-  /** 목록에서 보여줄 마지막 고객 메시지. */
-  lastMessage: string;
-  lastMessageAt: string; // ISO
 }
 
 /** 프로젝트 컨텍스트로 등록된 문서. AI가 근거를 찾는 곳이다. */
@@ -76,6 +78,8 @@ export type TicketCategory =
 
 export interface Ticket {
   ticketId: string;
+  /** 화면에 보여주는 짧은 번호(TCK-01). 조회 키는 ticketId다. */
+  ticketCode: string;
   projectId: string;
   /** 짧은 요약 제목. */
   title: string;
@@ -220,6 +224,21 @@ export interface WorkItem {
   /** 아직 답하지 않은 고객 메시지. 없으면 지금 할 일이 없다. */
   pending: Inbound | null;
   lastActivityAt: string;
+  /** 지금 사람이 무엇을 해야 하는지. 서버가 계산해 준다. */
+  workStage: WorkStage;
+}
+
+/** 티켓에 쌓인 지난 대화 한 줄. */
+export type HistoryEntry =
+  | { kind: 'in'; at: string; inbound: Inbound }
+  | { kind: 'out'; at: string; outbound: Outbound };
+
+/** GET /api/tickets/{id} — 상세 화면 한 장에 필요한 것을 모아 준다. */
+export interface TicketDetail extends WorkItem {
+  project: Project;
+  decision: InboundDecision;
+  history: HistoryEntry[];
+  materials: ProjectMaterial[];
 }
 
 // ─────────────────────────────────────────────────────────────

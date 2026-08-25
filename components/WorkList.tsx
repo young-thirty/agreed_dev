@@ -34,23 +34,23 @@ function hintOf(item: WorkItem, stage: WorkStage): string {
 }
 
 export function WorkList() {
-  const { workItems, projects, stageOf } = useAppStore();
+  const { workItems, projects, loaded, error } = useAppStore();
   const params = useParams<{ id?: string }>();
   const [filter, setFilter] = useState<Filter>('todo');
 
   const counts = useMemo(() => {
-    const todo = workItems.filter((i) => needsWork(stageOf(i))).length;
+    const todo = workItems.filter((item) => needsWork(item.workStage)).length;
     return { todo, all: workItems.length };
-  }, [workItems, stageOf]);
+  }, [workItems]);
 
   const visible = useMemo(
     () =>
       workItems.filter((item) => {
         if (filter === 'all') return true;
-        if (filter === 'todo') return needsWork(stageOf(item));
+        if (filter === 'todo') return needsWork(item.workStage);
         return item.ticket.status === filter;
       }),
-    [workItems, filter, stageOf],
+    [workItems, filter],
   );
 
   return (
@@ -83,14 +83,20 @@ export function WorkList() {
       </div>
 
       <ul className="flex-1 overflow-y-auto">
-        {visible.length === 0 && (
+        {error !== null && <li className="px-5 py-8 text-sm text-ink-faint">{error}</li>}
+
+        {error === null && !loaded && (
+          <li className="px-5 py-8 text-sm text-ink-faint">티켓을 불러오는 중…</li>
+        )}
+
+        {error === null && loaded && visible.length === 0 && (
           <li className="px-5 py-8 text-sm text-ink-faint">
             {filter === 'todo' ? '지금 처리할 것이 없습니다.' : '해당하는 티켓이 없습니다.'}
           </li>
         )}
 
         {visible.map((item) => {
-          const stage = stageOf(item);
+          const stage = item.workStage;
           const { ticket, pending } = item;
           const selected = params.id === ticket.ticketId;
           const project = projects.find((p) => p.projectId === ticket.projectId);

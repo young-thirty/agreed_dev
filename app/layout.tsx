@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { AppStoreProvider } from '@/components/AppStore';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -11,9 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko">
-      <body className="bg-paper text-ink font-sans antialiased">
-        <AppStoreProvider>{children}</AppStoreProvider>
-      </body>
+      <body className="bg-paper text-ink font-sans antialiased">{children}</body>
     </html>
   );
 }

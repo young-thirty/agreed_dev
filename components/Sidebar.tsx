@@ -4,9 +4,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, FolderKanban, RotateCcw, Ticket } from 'lucide-react';
-import { usePersistedState, useResetAll } from '@/hooks/usePersistedState';
+import { useRouter } from 'next/navigation';
+import { ChevronDown, FolderKanban, LogOut, Ticket } from 'lucide-react';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { useAppStore } from '@/components/AppStore';
+import { LOGIN_PATH, logout } from '@/lib/auth';
 import type { ProjectStatus, WorkStage } from '@/types';
 
 const needsWork = (stage: WorkStage) => stage === 'to_analyze' || stage === 'to_reply';
@@ -20,15 +22,15 @@ const STATUS_DOT: Record<ProjectStatus, string> = {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const resetAll = useResetAll();
-  const { projects, workItems, stageOf } = useAppStore();
+  const router = useRouter();
+  const { projects, workItems } = useAppStore();
   const [projectsOpen, setProjectsOpen] = usePersistedState('sidebar-projects', true);
 
-  const todo = workItems.filter((item) => needsWork(stageOf(item))).length;
+  const todo = workItems.filter((item) => needsWork(item.workStage)).length;
 
   /** 이 프로젝트에서 사람 손이 필요한 건수. */
   const todoOf = (projectId: string) =>
-    workItems.filter((item) => item.ticket.projectId === projectId && needsWork(stageOf(item)))
+    workItems.filter((item) => item.ticket.projectId === projectId && needsWork(item.workStage))
       .length;
 
   const ticketsActive = pathname.startsWith('/tickets');
@@ -40,7 +42,6 @@ export function Sidebar() {
         <Link href="/tickets" className="text-base font-semibold tracking-tight">
           Agreed
         </Link>
-        <p className="mt-0.5 text-xs text-ink-faint">고객 메시지 → 분석 → 답변</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
@@ -118,11 +119,14 @@ export function Sidebar() {
       <div className="border-t border-line p-3">
         <button
           type="button"
-          onClick={resetAll}
+          onClick={async () => {
+            await logout();
+            router.replace(LOGIN_PATH);
+          }}
           className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-ink-muted transition-colors hover:bg-paper"
         >
-          <RotateCcw className="size-3.5" />
-          처음부터 다시
+          <LogOut className="size-3.5" />
+          로그아웃
         </button>
       </div>
     </aside>
