@@ -9,33 +9,75 @@ import type { RawEmail } from '@/types/integrations';
 const AUTOMATED_SENDER =
   /(no-?reply|donotreply|do-not-reply|mailer-daemon|postmaster|bounce|newsletter|notification)/i;
 
-/** 이 줄부터 아래는 이전 메일의 인용이거나 서명이다. 만나면 그 아래를 통째로 버린다. */
-const TAIL_MARKER: RegExp[] = [
+/**
+ * 인용된 이전 대화가 시작되는 머리말. 여기부터 끝까지가 인용이다.
+ *
+ * 줄 앞에 고정하지 않는다. 본문이 text/html뿐이면 백엔드가 줄바꿈을 공백으로
+ * 눌러 한 줄로 내려보내는데, 그때도 찾아낼 수 있어야 하기 때문이다.
+ */
+const QUOTE_HEADER: RegExp[] = [
+  // ---------- Forwarded message ---------- / -----Original Message-----
+  /-{3,}\s*(forwarded message|original message|원본\s*(메시지|메일)|전달된\s*메시지)/i,
+  // 2026년 8월 25일 (화) 오후 11:48, 홍길동 <hong@x.com>님이 작성:
+  /\d{4}년\s.{0,120}?님이\s*(작성|씀)\s*[:：]/,
+  // On Mon, Aug 25, 2026 at 3:14 PM Hong <hong@x.com> wrote:
+  /\bon\s.{0,160}?@.{0,80}?\bwrote\s*[:：]/i,
+  // 보낸 사람: 홍길동 <hong@x.com>
+  /(^|\n)\s*(보낸\s*사람|from)\s*[:：]\s*[^\n]{0,80}@/i,
+];
+
+/** 본문이 끝나고 서명이 시작되는 줄. */
+const SIGNATURE_LINE: RegExp[] = [
   /^--\s*$/, // 서명 구분자
   /^_{5,}$/, // Outlook 구분선
-  /^-{3,}.*(original message|원본\s*(메시지|메일)).*$/i, // 회신 원문 머리말
-  /^on\s.+\bwrote:$/i, // Gmail 영문 회신 머리말
-  /^\d{4}년\s.+(작성|씀)\s*[:：]?$/, // Gmail 한국어 회신 머리말
-  /^(보낸\s*사람|from)\s*[:：]\s*\S+/i, // Outlook 회신 머리말
 ];
 
 /** 백엔드 발화 분할은 콜론 앞 20자까지만 화자로 인식한다. 넉넉히 줄여 둔다. */
 const MAX_SPEAKER_LENGTH = 12;
 
+function quoteStart(text: string): number {
+  let earliest = -1;
+  for (const header of QUOTE_HEADER) {
+    const found = header.exec(text);
+    if (found !== null && (earliest === -1 || found.index < earliest)) {
+      earliest = found.index;
+    }
+  }
+  return earliest;
+}
+
 /**
- * 본문에서 인용 블록과 서명을 지우고 남은 줄만 돌려준다.
- * 회신 머리말 아래는 전부 이전 대화이므로 한 줄씩 보지 않고 통째로 버린다.
+ * 본문을 '이 메일에서 새로 쓴 부분'과 '인용된 이전 대화'로 가른다.
+ *
+ * 인용된 쪽은 목록에 자기 메일로 이미 따로 있으므로 화면에서는 접어 둔다.
+ * 서명은 어느 쪽도 아니라서 버린다.
  */
-export function cleanBody(body: string): string[] {
-  const lines = body
-    .replace(/\r\n/g, '\n')
+export function splitQuoted(body: string): { kept: string[]; quoted: string[] } {
+  const text = body.replace(/\r\n/g, '\n');
+  const start = quoteStart(text);
+
+  const lines = (start === -1 ? text : text.slice(0, start))
     .split('\n')
     .map((line) => line.trim());
+  const signature = lines.findIndex((line) => SIGNATURE_LINE.some((rule) => rule.test(line)));
+  const written = signature === -1 ? lines : lines.slice(0, signature);
 
-  const tail = lines.findIndex((line) => TAIL_MARKER.some((marker) => marker.test(line)));
-  const kept = tail === -1 ? lines : lines.slice(0, tail);
+  return {
+    kept: written.filter((line) => line !== '' && !line.startsWith('>')),
+    quoted:
+      start === -1
+        ? []
+        : text
+            .slice(start)
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line !== ''),
+  };
+}
 
-  return kept.filter((line) => line !== '' && !line.startsWith('>'));
+/** 분석에 넘길 부분. 인용과 서명을 뺀 나머지다. */
+export function cleanBody(body: string): string[] {
+  return splitQuoted(body).kept;
 }
 
 /** 자동 발송 메일을 뺀 목록. 사람이 쓴 메일만 남는다. */

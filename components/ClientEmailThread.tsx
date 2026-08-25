@@ -5,9 +5,43 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { loadClientEmails } from '@/lib/client-emails';
+import { splitQuoted } from '@/lib/email-clean';
 import { Button } from './Button';
 import { ReconnectGmailModal } from './ReconnectGmailModal';
 import type { RawEmail } from '@/types/integrations';
+
+/**
+ * 메일 본문. 인용된 이전 대화는 접어 둔다.
+ * 그 내용은 목록에 자기 메일로 이미 따로 있어서, 펼쳐 두면 같은 글을 여러 번 읽게 된다.
+ */
+function EmailBody({ body }: { body: string }) {
+  const [showQuoted, setShowQuoted] = useState(false);
+  const { kept, quoted } = splitQuoted(body);
+
+  return (
+    <>
+      <p className="whitespace-pre-wrap text-xs text-ink-muted">
+        {kept.length > 0 ? kept.join('\n') : '인용된 이전 대화만 있는 메일입니다.'}
+      </p>
+
+      {quoted.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowQuoted((on) => !on)}
+          className="self-start text-[11px] text-ink-faint hover:text-ink"
+        >
+          {showQuoted ? '인용된 이전 대화 접기' : `인용된 이전 대화 ${quoted.length}줄 보기`}
+        </button>
+      )}
+
+      {showQuoted && (
+        <p className="whitespace-pre-wrap border-l-2 border-line pl-2 text-[11px] text-ink-faint">
+          {quoted.join('\n')}
+        </p>
+      )}
+    </>
+  );
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('ko-KR', {
@@ -76,7 +110,7 @@ export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
               <span className="text-sm font-medium text-ink">{email.subject || '(제목 없음)'}</span>
               <span className="shrink-0 text-xs text-ink-faint">{formatDate(email.sentAt)}</span>
             </div>
-            <p className="whitespace-pre-wrap text-xs text-ink-muted">{email.body}</p>
+            <EmailBody body={email.body} />
           </li>
         ))}
       </ul>
