@@ -32,9 +32,6 @@ const SIGNATURE_LINE: RegExp[] = [
   /^_{5,}$/, // Outlook 구분선
 ];
 
-/** 백엔드 발화 분할은 콜론 앞 20자까지만 화자로 인식한다. 넉넉히 줄여 둔다. */
-const MAX_SPEAKER_LENGTH = 12;
-
 /** 접어 둔 인용 한 줄. depth는 '>'가 몇 겹인지, 곧 얼마나 이전 대화인지다. */
 export type QuotedLine = {
   depth: number;
@@ -137,20 +134,28 @@ export function humanEmails(emails: RawEmail[]): RawEmail[] {
   return emails.filter((email) => !AUTOMATED_SENDER.test(email.from.address));
 }
 
-function speakerOf(email: RawEmail): string {
-  const name = (email.from.name || email.from.address).replace(/[:：]/g, ' ').trim();
-  return name.slice(0, MAX_SPEAKER_LENGTH) || '고객';
+/**
+ * 화자를 이름이 아니라 역할로 적는다.
+ *
+ * 이름을 쓰면 분석 맥락에 적힌 클라이언트 이름과 대화 속 이름이 어긋날 때
+ * 모델이 누가 요구하는 쪽인지 몰라 요구사항을 통째로 놓친다. 표시 이름은
+ * 계정마다 제각각이라 맞추려 들면 계속 어긋난다. 역할은 어긋날 일이 없다.
+ */
+function speakerOf(email: RawEmail, clientEmail: string): string {
+  return email.from.address.toLowerCase() === clientEmail.toLowerCase()
+    ? '클라이언트'
+    : '프리랜서';
 }
 
 /**
- * 정리한 메일들을 백엔드 분석이 읽는 '보낸사람: 내용' 줄 목록으로 만든다.
+ * 정리한 메일들을 백엔드 분석이 읽는 '역할: 내용' 줄 목록으로 만든다.
  * 한 줄이 발화 하나가 되므로, 돌아온 근거 인용이 원문 어느 줄이었는지 되짚을 수 있다.
  */
-export function buildRawText(emails: RawEmail[]): string {
+export function buildRawText(emails: RawEmail[], clientEmail: string): string {
   return [...emails]
     .sort((a, b) => a.sentAt.localeCompare(b.sentAt))
     .flatMap((email) => {
-      const speaker = speakerOf(email);
+      const speaker = speakerOf(email, clientEmail);
       return cleanBody(email.body).map((line) => `${speaker}: ${line}`);
     })
     .join('\n');

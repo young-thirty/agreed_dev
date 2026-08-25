@@ -85,7 +85,8 @@ export function RequirementExtractor({
       return;
     }
 
-    const inbox = await loadClientEmails(clientEmail);
+    // '다시 분석'은 메일을 새로 받아온다. 첫 분석은 이미 받아둔 게 있으면 그걸 쓴다.
+    const inbox = await loadClientEmails(clientEmail, { refresh: requirements !== null });
     if (!inbox.ok) {
       setLoading(false);
       setMessage(inbox.error);
@@ -94,7 +95,7 @@ export function RequirementExtractor({
     }
 
     const emails = humanEmails(inbox.emails);
-    const rawText = buildRawText(emails);
+    const rawText = buildRawText(emails, clientEmail);
     if (rawText === '') {
       setLoading(false);
       setMessage('이 주소와 주고받은 메일에서 분석할 내용을 찾지 못했습니다.');
