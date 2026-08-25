@@ -1,7 +1,7 @@
 'use client';
 
 // 고객에게 되물을 확인 질문 목록. 체크로 고르고, 필요 없으면 지우고, 직접 추가한다.
-// 상태는 상위(AnalysisPanel)가 소유하고 여기서는 표시와 조작만 한다.
+// 상태는 상위(RequirementAnalysisPanel)가 소유하고 여기서는 표시와 조작만 한다.
 
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';

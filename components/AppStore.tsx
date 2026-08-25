@@ -1,27 +1,45 @@
 'use client';
 
-// 앱 전역 상태 저장소. 화면이 여러 개라 page.tsx 하나가 상태를 들 수 없어,
-// 전역 상태 라이브러리 대신 React Context로 최소한만 공유한다. 저장은 localStorage.
-//
-// 요청·문서·타임라인은 데모용 읽기 데이터라 mocks에서 직접 읽는다.
-// 여기서는 사용자가 실제로 바꾸는 것(프로필·연동·프로젝트)만 들고 있는다.
+// 화면이 공유하는 상태. 프로젝트는 백엔드가 원천이고 여기서는 캐시만 한다.
+// 사용자·연동 상태는 시연용이라 localStorage에 남는다.
 
-import { createContext, useContext, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
+import { get, patch, post } from '@/lib/api-client';
 import { usePersistedState } from '@/hooks/usePersistedState';
-import { DEFAULT_INTEGRATIONS, PROJECTS } from '@/mocks';
-import type { Integration, Project, ProjectStatus, User } from '@/types';
+import { DEFAULT_INTEGRATIONS } from '@/mocks';
+import type { ApiResult, Integration, Project, ProjectStatus, User } from '@/types';
+
+/** 프로젝트를 만들 때 화면이 채우는 값. 서버가 나머지를 붙여 돌려준다. */
+export interface ProjectDraft {
+  name: string;
+  clientName: string;
+  clientEmail: string | null;
+  description: string;
+  startDate: string | null;
+  endDate: string | null;
+  contractPrice: number | null;
+}
 
 interface AppStore {
   user: User | null;
-  setUser: (user: User) => void;
-
-  // gmail·slack은 이제 FastAPI 세션·OAuth로 실제 연결 여부를 판단한다(EmailIntegrationPanel,
-  // SlackIntegrationPanel). 여기 integrations는 file·text처럼 항상 켜져 있는 소스만 남았다.
+  setUser: (user: User | null) => void;
   integrations: Integration[];
 
   projects: Project[];
-  addProject: (project: Project) => void;
-  setProjectStatus: (id: string, status: ProjectStatus) => void;
+  /** 첫 조회가 끝났는지. 끝나기 전에는 '프로젝트가 없다'고 말하지 않는다. */
+  projectsLoaded: boolean;
+  projectsError: string | null;
+  reloadProjects: () => Promise<void>;
+  createProject: (draft: ProjectDraft) => Promise<ApiResult<Project>>;
+  updateProject: (projectId: string, draft: ProjectDraft) => Promise<ApiResult<Project>>;
+  setProjectStatus: (projectId: string, status: ProjectStatus) => Promise<void>;
 }
 
 const Ctx = createContext<AppStore | null>(null);
@@ -29,12 +47,46 @@ const Ctx = createContext<AppStore | null>(null);
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = usePersistedState<User | null>('user', null);
   const [integrations] = usePersistedState<Integration[]>('integrations', DEFAULT_INTEGRATIONS);
-  const [projects, setProjects] = usePersistedState<Project[]>('projects', PROJECTS);
 
-  const addProject = (project: Project) => setProjects((prev) => [project, ...prev]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
 
-  const setProjectStatus = (id: string, status: ProjectStatus) =>
-    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
+  const reloadProjects = useCallback(async () => {
+    const res = await get<Project[]>('/api/projects');
+    setProjectsLoaded(true);
+    if (!res.ok) {
+      setProjectsError(res.error);
+      return;
+    }
+    setProjectsError(null);
+    setProjects(res.data);
+  }, []);
+
+  useEffect(() => {
+    reloadProjects();
+  }, [reloadProjects]);
+
+  const createProject = useCallback(async (draft: ProjectDraft) => {
+    const res = await post<Project>('/api/projects', { ...draft, status: 'DRAFT' });
+    if (res.ok) setProjects((prev) => [res.data, ...prev]);
+    return res;
+  }, []);
+
+  const updateProject = useCallback(async (projectId: string, draft: ProjectDraft) => {
+    const res = await patch<Project>(`/api/projects/${projectId}`, draft);
+    if (res.ok) {
+      setProjects((prev) => prev.map((p) => (p.projectId === projectId ? res.data : p)));
+    }
+    return res;
+  }, []);
+
+  const setProjectStatus = useCallback(async (projectId: string, status: ProjectStatus) => {
+    const res = await patch<Project>(`/api/projects/${projectId}/status`, { status });
+    if (res.ok) {
+      setProjects((prev) => prev.map((p) => (p.projectId === projectId ? res.data : p)));
+    }
+  }, []);
 
   return (
     <Ctx.Provider
@@ -43,7 +95,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         setUser,
         integrations,
         projects,
-        addProject,
+        projectsLoaded,
+        projectsError,
+        reloadProjects,
+        createProject,
+        updateProject,
         setProjectStatus,
       }}
     >
@@ -54,6 +110,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
 export function useAppStore(): AppStore {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error('useAppStore는 AppStoreProvider 안에서만 쓸 수 있습니다.');
+  if (ctx === null) throw new Error('AppStoreProvider 안에서만 사용할 수 있습니다.');
   return ctx;
 }

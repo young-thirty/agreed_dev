@@ -4,7 +4,6 @@
 import type {
   ClientRequest,
   Integration,
-  Project,
   ProjectDocument,
   TimelineEvent,
 } from '@/types';
@@ -20,51 +19,8 @@ export const DEFAULT_INTEGRATIONS: Integration[] = [
 ];
 
 // ─── 프로젝트 ────────────────────────────────────────────────
-export const PROJECTS: Project[] = [
-  {
-    // Gmail 연동 확인용. clientEmail이 있는 유일한 프로젝트라, 프로젝트 화면의
-    // '고객 이메일' 탭에서 이 주소와 주고받은 메일만 실제로 걸러 보여준다.
-    id: 'email-integration-test',
-    name: '이메일 연동 테스트',
-    clientName: '테스트 클라이언트',
-    clientEmail: 'tjddbs2395@gmail.com',
-    description: 'Gmail 연동이 실제로 동작하는지 확인하기 위한 프로젝트.',
-    startDate: '2026-08-01',
-    endDate: '2026-12-31',
-    budget: 0,
-    status: 'active',
-  },
-  {
-    id: 'acme',
-    name: 'Acme Studio 웹사이트 리뉴얼',
-    clientName: 'Acme Studio',
-    description: '기존 회사 홈페이지 리뉴얼. 랜딩페이지 5개, 문의 폼, 반응형, 기본 관리자 페이지.',
-    startDate: '2026-07-28',
-    endDate: '2026-09-19',
-    budget: 8_500_000,
-    status: 'active',
-  },
-  {
-    id: 'brand-landing',
-    name: 'Brand 랜딩페이지',
-    clientName: 'Northwind',
-    description: '신제품 출시용 단일 랜딩페이지. 카피는 고객이 제공.',
-    startDate: '2026-09-01',
-    endDate: '2026-09-30',
-    budget: 3_200_000,
-    status: 'draft',
-  },
-  {
-    id: 'mobile-redesign',
-    name: '모바일 앱 리디자인',
-    clientName: 'Loop Health',
-    description: '기존 iOS/Android 앱의 홈·검색·프로필 화면 리디자인.',
-    startDate: '2026-05-06',
-    endDate: '2026-07-11',
-    budget: 12_000_000,
-    status: 'completed',
-  },
-];
+// 프로젝트는 이제 백엔드가 원천이다(GET /api/projects). 목 프로젝트는 지웠다.
+// 아래 문서·요청·타임라인은 화면을 구상할 때 쓰던 자료라 참고용으로 남긴다.
 
 // ─── 프로젝트 컨텍스트 문서 ───────────────────────────────────
 export const DOCUMENTS: ProjectDocument[] = [
@@ -316,9 +272,6 @@ export const TIMELINE: TimelineEvent[] = [
 ];
 
 // ─── 조회 헬퍼 ────────────────────────────────────────────────
-export const projectById = (id: string): Project | undefined =>
-  PROJECTS.find((p) => p.id === id);
-
 export const documentsOf = (projectId: string): ProjectDocument[] =>
   DOCUMENTS.filter((d) => d.projectId === projectId);
 

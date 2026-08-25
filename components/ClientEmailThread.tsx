@@ -4,11 +4,16 @@
 // 이 프로젝트의 clientEmail 한 명과 주고받은 메일만 걸러서 평평한 목록으로 보여준다.
 
 import { useCallback, useEffect, useState } from 'react';
-import { post } from '@/lib/api-client';
+import { loadClientEmails } from '@/lib/client-emails';
+import { splitQuoted } from '@/lib/email-clean';
 import { Button } from './Button';
-import type { CompanyGroup, RawEmail } from '@/types/integrations';
+import { ReconnectGmailModal } from './ReconnectGmailModal';
+import type { RawEmail } from '@/types/integrations';
 
 const MAX_MESSAGES = 100;
+
+/** 인용 겹 수를 들여쓰기로 보여준다. '>' 마커를 그대로 두면 읽히지 않는다. */
+const INDENT = ['', 'ml-3', 'ml-6', 'ml-9', 'ml-12'] as const;
 
 /** 목록에서는 짧게 읽히도록 올해 메일은 연도를 생략한다. */
 function formatDate(iso: string): string {
@@ -21,16 +26,6 @@ function formatDate(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
   });
-}
-
-/** 회사/발신인 트리에서 이 주소 하나와 주고받은 메일만 뽑아 최신순으로 편다. */
-function emailsWith(groups: CompanyGroup[], address: string): RawEmail[] {
-  const target = address.toLowerCase();
-  for (const company of groups) {
-    const sender = company.senders.find((s) => s.address.toLowerCase() === target);
-    if (sender) return sender.emails;
-  }
-  return [];
 }
 
 // 스켈레톤 각 줄의 폭. 실제 메일처럼 제목·본문 길이가 제각각이라 벽처럼 보이지 않는다.
@@ -63,27 +58,80 @@ function EmailListSkeleton() {
   );
 }
 
+/**
+ * 메일 본문. 인용된 이전 대화는 접어 둔다.
+ * 그 내용은 목록에 자기 메일로 이미 따로 있어서, 펼쳐 두면 같은 글을 여러 번 읽게 된다.
+ */
+function EmailBody({ body }: { body: string }) {
+  const [showQuoted, setShowQuoted] = useState(false);
+  const { kept, quoted } = splitQuoted(body);
+
+  return (
+    <>
+      <p className="whitespace-pre-wrap text-xs leading-relaxed text-ink-muted">
+        {kept.length > 0 ? kept.join('\n') : '인용된 이전 대화만 있는 메일입니다.'}
+      </p>
+
+      {quoted.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowQuoted((on) => !on)}
+          className="self-start text-[11px] text-ink-faint hover:text-ink"
+        >
+          {showQuoted ? '인용된 이전 대화 접기' : `인용된 이전 대화 ${quoted.length}줄 보기`}
+        </button>
+      )}
+
+      {showQuoted && (
+        <div className="mt-1 flex flex-col gap-1">
+          {quoted.map((line, order) => {
+            // 머리말이 연달아 나오면(전달 메일의 보낸사람·날짜·제목) 한 덩어리로 붙인다.
+            const continued = order > 0 && quoted[order - 1].header;
+            return (
+              <p
+                key={order}
+                className={`text-[11px] ${INDENT[Math.min(line.depth, INDENT.length - 1)]} ${
+                  line.header
+                    ? `font-medium text-ink-faint${continued ? '' : ' mt-1.5'}`
+                    : 'border-l-2 border-line pl-2 text-ink-muted'
+                }`}
+              >
+                {line.text}
+              </p>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
 export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
   const [emails, setEmails] = useState<RawEmail[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reconnect, setReconnect] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const res = await post<CompanyGroup[]>('/api/email/messages', { maxMessages: MAX_MESSAGES });
-    setLoading(false);
+  const load = useCallback(
+    async (refresh: boolean) => {
+      setLoading(true);
+      const res = await loadClientEmails(clientEmail, { refresh });
+      setLoading(false);
 
-    if (!res.ok) {
-      setMessage(res.error);
-      setEmails([]);
-      return;
-    }
-    setMessage(null);
-    setEmails(emailsWith(res.data, clientEmail));
-  }, [clientEmail]);
+      if (!res.ok) {
+        setMessage(res.error);
+        setEmails([]);
+        setReconnect(res.reconnect);
+        return;
+      }
+      setMessage(null);
+      setEmails(res.emails);
+    },
+    [clientEmail],
+  );
 
   useEffect(() => {
-    load();
+    load(false);
   }, [load]);
 
   return (
@@ -93,7 +141,7 @@ export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
           <h2 className="text-base font-semibold tracking-tight text-ink">고객 이메일</h2>
           <p className="mt-0.5 text-xs text-ink-faint">{clientEmail}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={() => load(true)} disabled={loading}>
           {loading ? '확인 중…' : '새로고침'}
         </Button>
       </div>
@@ -104,9 +152,7 @@ export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
         </p>
       ) : loading ? (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-ink-faint">
-            메일을 불러오는 중이에요 · 최대 {MAX_MESSAGES}통
-          </p>
+          <p className="text-xs text-ink-faint">메일을 불러오는 중이에요 · 최대 {MAX_MESSAGES}통</p>
           <EmailListSkeleton />
         </div>
       ) : emails.length === 0 ? (
@@ -131,12 +177,14 @@ export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
                     {formatDate(email.sentAt)}
                   </span>
                 </div>
-                <p className="line-clamp-2 text-xs leading-relaxed text-ink-muted">{email.body}</p>
+                <EmailBody body={email.body} />
               </li>
             ))}
           </ul>
         </div>
       )}
+
+      {reconnect && <ReconnectGmailModal onClose={() => setReconnect(false)} />}
     </div>
   );
 }

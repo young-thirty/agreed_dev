@@ -59,3 +59,7 @@ export async function post<T>(path: string, body: unknown): Promise<ApiResult<T>
 export async function get<T>(path: string): Promise<ApiResult<T>> {
   return request(path, { method: 'GET' });
 }
+
+export async function patch<T>(path: string, body: unknown): Promise<ApiResult<T>> {
+  return request(path, { method: 'PATCH', body: JSON.stringify(body) });
+}

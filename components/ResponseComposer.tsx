@@ -1,22 +1,30 @@
 'use client';
 
-// 고객에게 보낼 답변 초안. 톤을 바꾸면 문구가 다시 만들어지고, 직접 편집할 수 있다.
-// 톤을 바꾸면 사용자가 편집한 내용은 초안으로 되돌아간다(의도된 동작).
+// 고객에게 보낼 답변 초안. 말투를 바꾸면 백엔드가 다시 만들고, 직접 편집할 수 있다.
+// 말투를 바꾸면 사용자가 편집한 내용은 새 초안으로 되돌아간다(의도된 동작).
+//
+// 보내지는 않는다. 사람이 읽고 고쳐서 직접 보낸다.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { Button } from '@/components/Button';
-import { generateReply, TONE_OPTIONS } from '@/lib/reply';
+import { TONE_OPTIONS } from '@/lib/reply';
 import type { Tone } from '@/types';
 
-export function ResponseComposer({ questions }: { questions: string[] }) {
-  const [tone, setTone] = useState<Tone>('professional');
+export function ResponseComposer({
+  draft,
+  tone,
+  onToneChange,
+  loading,
+}: {
+  draft: string;
+  tone: Tone;
+  onToneChange: (tone: Tone) => void;
+  loading: boolean;
+}) {
+  const [text, setText] = useState(draft);
   const [copied, setCopied] = useState(false);
 
-  const draft = useMemo(() => generateReply(tone, questions), [tone, questions]);
-  const [text, setText] = useState(draft);
-
-  // 톤이나 선택한 질문이 바뀌면 초안을 다시 반영한다.
   useEffect(() => setText(draft), [draft]);
 
   const copy = async () => {
@@ -36,8 +44,9 @@ export function ResponseComposer({ questions }: { questions: string[] }) {
           <button
             key={opt.value}
             type="button"
-            onClick={() => setTone(opt.value)}
-            className={`rounded-md px-2.5 py-1 text-xs transition-all ${
+            disabled={loading}
+            onClick={() => onToneChange(opt.value)}
+            className={`rounded-md px-2.5 py-1 text-xs transition-all disabled:opacity-50 ${
               tone === opt.value
                 ? 'bg-surface font-medium text-ink shadow-pop'
                 : 'text-ink-muted hover:text-ink'
@@ -49,14 +58,15 @@ export function ResponseComposer({ questions }: { questions: string[] }) {
       </div>
 
       <textarea
-        value={text}
+        value={loading ? '초안을 만드는 중…' : text}
         onChange={(e) => setText(e.target.value)}
+        readOnly={loading}
         rows={12}
         className="w-full resize-none rounded-md border border-line bg-surface p-3 text-sm leading-relaxed outline-none focus:border-ink-faint"
       />
 
       <div className="mt-2 flex justify-end">
-        <Button variant="primary" size="sm" onClick={copy}>
+        <Button variant="primary" size="sm" onClick={copy} disabled={loading}>
           {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
           {copied ? '복사됨' : '복사'}
         </Button>
