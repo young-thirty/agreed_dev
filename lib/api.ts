@@ -8,6 +8,7 @@ import type {
   InboundDecision,
   Project,
   ProjectMaterial,
+  SourceLink,
   TicketCategory,
   TicketDetail,
   TicketStatus,
@@ -79,6 +80,68 @@ export function getChecklist(ticketId: string): Promise<ApiResult<{ items: strin
 
 export function listMaterials(projectId: string): Promise<ApiResult<ProjectMaterial[]>> {
   return get<ProjectMaterial[]>(`/api/projects/${projectId}/materials`);
+}
+
+// ─────────────────────────────────────────────────────────────
+// 프로젝트 채널 연결
+//
+// 이메일 주소·슬랙 채널·저장소는 Project가 아니라 이 목록에 행으로 쌓인다.
+// ─────────────────────────────────────────────────────────────
+
+export function listSourceLinks(projectId: string): Promise<ApiResult<SourceLink[]>> {
+  return get<SourceLink[]>(`/api/projects/${projectId}/source-links`);
+}
+
+/** 등록할 채널 연결. 채널마다 채우는 칸이 다르다. */
+export type SourceLinkInput =
+  | { sourceChannel: 'GMAIL'; displayName: string; counterpartyEmail: string }
+  | { sourceChannel: 'SLACK'; displayName: string; teamId: string; channelId: string }
+  | { sourceChannel: 'GITHUB'; displayName: string; repoFullName: string };
+
+/** 같은 연결을 두 번 등록하면 서버가 409로 막는다. */
+export function createSourceLink(
+  projectId: string,
+  input: SourceLinkInput,
+): Promise<ApiResult<SourceLink>> {
+  return post<SourceLink>(`/api/projects/${projectId}/source-links`, {
+    ...input,
+    locatorKey: locatorKeyOf(input),
+  });
+}
+
+/** 중복 판정에 쓰는 키. 채널마다 무엇이 같으면 같은 연결인지가 다르다. */
+function locatorKeyOf(input: SourceLinkInput): string {
+  if (input.sourceChannel === 'GMAIL') return input.counterpartyEmail;
+  if (input.sourceChannel === 'SLACK') return `${input.teamId}:${input.channelId}`;
+  return input.repoFullName;
+}
+
+/** 연결해 둔 슬랙 워크스페이스. 채널을 고르기 전에 워크스페이스를 먼저 고른다. */
+export function listSlackWorkspaces(): Promise<ApiResult<{ teamId: string; teamName: string }[]>> {
+  return post<{ teamId: string; teamName: string }[]>('/api/slack/workspaces', {});
+}
+
+export interface SlackChannel {
+  id: string;
+  name: string;
+  isPrivate: boolean;
+  /** 봇이 이미 들어가 있는 채널인지. 아니면 초대해야 대화를 읽는다. */
+  isMember: boolean;
+}
+
+export function listSlackChannels(teamId: string): Promise<ApiResult<SlackChannel[]>> {
+  return post<SlackChannel[]>('/api/slack/channels', { teamId });
+}
+
+/** 계정 단위 연동 상태. 프로젝트에 채널을 붙이기 전에 이게 먼저 연결돼 있어야 한다. */
+export function getGmailStatus(): Promise<ApiResult<{ connected: boolean; email: string | null }>> {
+  return get<{ connected: boolean; email: string | null }>('/api/email/status');
+}
+
+export function getGithubStatus(): Promise<
+  ApiResult<{ connected: boolean; accountName: string | null }>
+> {
+  return get<{ connected: boolean; accountName: string | null }>('/api/github/status');
 }
 
 /** 연결된 저장소에 물어본다. GitHub 저장소가 연결돼 있어야 한다. */
