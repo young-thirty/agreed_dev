@@ -10,6 +10,9 @@ import { Button } from './Button';
 import { ReconnectGmailModal } from './ReconnectGmailModal';
 import type { RawEmail } from '@/types/integrations';
 
+/** 인용 겹 수를 들여쓰기로 보여준다. '>' 마커를 그대로 두면 읽히지 않는다. */
+const INDENT = ['', 'ml-3', 'ml-6', 'ml-9', 'ml-12'] as const;
+
 /**
  * 메일 본문. 인용된 이전 대화는 접어 둔다.
  * 그 내용은 목록에 자기 메일로 이미 따로 있어서, 펼쳐 두면 같은 글을 여러 번 읽게 된다.
@@ -35,9 +38,24 @@ function EmailBody({ body }: { body: string }) {
       )}
 
       {showQuoted && (
-        <p className="whitespace-pre-wrap border-l-2 border-line pl-2 text-[11px] text-ink-faint">
-          {quoted.join('\n')}
-        </p>
+        <div className="mt-1 flex flex-col gap-1">
+          {quoted.map((line, order) => {
+            // 머리말이 연달아 나오면(전달 메일의 보낸사람·날짜·제목) 한 덩어리로 붙인다.
+            const continued = order > 0 && quoted[order - 1].header;
+            return (
+              <p
+                key={order}
+                className={`text-[11px] ${INDENT[Math.min(line.depth, INDENT.length - 1)]} ${
+                  line.header
+                    ? `font-medium text-ink-faint${continued ? '' : ' mt-1.5'}`
+                    : 'border-l-2 border-line pl-2 text-ink-muted'
+                }`}
+              >
+                {line.text}
+              </p>
+            );
+          })}
+        </div>
       )}
     </>
   );
