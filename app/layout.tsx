@@ -5,7 +5,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Agreed',
-  description: '계약 이후 고객 대화에서 새 요구사항을 찾아, 지금 합의된 계약 상태를 최신으로 유지합니다.',
+  description: '고객 메시지를 분석해 무엇이 바뀌는지 알려주고, 보낼 답변 초안까지 만들어 줍니다.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

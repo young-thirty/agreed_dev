@@ -1,215 +1,243 @@
-// 공유 타입의 단일 원천이다. 백엔드가 소유하고 프론트는 읽기만 한다.
-// 이 파일을 고치면 양쪽 화면이 함께 영향을 받으므로, 수정하기 전에 팀에 알린다.
-
-/**
- * 모든 API 응답의 형태.
- * 성공이면 data가, 실패면 사용자가 그대로 읽을 수 있는 error 문장이 들어온다.
- */
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
-
-/**
- * 요구사항 상태.
- *
- * '미확정'은 진입 상태이자 강등 목적지다. 모델이 성격을 확정하지 못했거나
- * 제안한 상태가 이전 상태에서 도달 불가능할 때 여기로 내린다.
- * 거부하면 화면에 아무것도 남지 않지만, 강등하면 사람이 판단할 거리가 남는다.
- */
-export const REQUIREMENT_STATUS = [
-  '미확정',
-  '문의',
-  '요청',
-  '제안',
-  '내부검토',
-  '고객검토',
-  '합의',
-  '거절',
-  '완료',
-] as const;
-
-export type RequirementStatus = (typeof REQUIREMENT_STATUS)[number];
+// 화면이 쓰는 도메인 타입의 단일 원천이다.
+// 지금은 백엔드가 없고 mocks/index.ts가 이 타입으로 목 데이터를 채운다.
+// 서버가 붙으면 같은 이름으로 응답이 내려오도록 백엔드와 맞춘다.
 
 // ─────────────────────────────────────────────────────────────
-// 프로토타입 도메인 타입
-//
-// 아래는 데모용 프로토타입이 화면을 그리기 위해 쓰는 타입이다.
-// 실제 백엔드가 붙기 전까지 mocks/index.ts가 이 타입으로 목 데이터를 채운다.
+// 프로젝트
 // ─────────────────────────────────────────────────────────────
 
-/** 온보딩에서 입력받는 사용자. 인증은 없고 데모용 프로필일 뿐이다. */
-export interface User {
-  name: string;
-  email: string;
-  role: string;
-  isFreelancer: boolean;
-}
+/** 고객 메시지가 들어오는 채널. */
+export type Channel = 'email' | 'slack';
 
-/** 요청이 들어오는 입력 채널. */
-export type Channel = 'gmail' | 'slack' | 'file' | 'text';
-
-/** 연동 소스의 연결 상태. 실제 OAuth 없이 UI 상태만 바꾼다. */
-export interface Integration {
-  channel: Channel;
-  label: string;
-  connected: boolean;
-}
-
-/** 프로젝트 진행 상태. Draft에서 시작해 사람이 직접 Active로 올린다. */
+/** 프로젝트 진행 상태. 문의 단계는 Draft, 계약 이후가 Active다. */
 export type ProjectStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED';
 
-/** GET /api/projects 응답. 백엔드 public_project를 그대로 따라간다. */
 export interface Project {
   projectId: string;
   name: string;
   clientName: string;
-  /** 있으면 이 주소와 주고받은 메일에서 요구사항을 뽑는다. */
-  clientEmail: string | null;
-  description: string;
-  startDate: string | null; // ISO yyyy-mm-dd
-  endDate: string | null;
-  contractPrice: number | null; // 원
-  unansweredRequestCount: number;
-  createdAt: string;
-  updatedAt: string;
+  clientEmail: string;
   status: ProjectStatus;
+  /** null이면 GitHub 미연결. 연결돼 있으면 owner/repo. */
+  githubRepo: string | null;
+  /** 목록에서 보여줄 마지막 고객 메시지. */
+  lastMessage: string;
+  lastMessageAt: string; // ISO
 }
 
-/** 프로젝트 컨텍스트로 등록된 문서. 파일 자체는 분석하지 않는다. */
+/** 프로젝트 컨텍스트로 등록된 문서. AI가 근거를 찾는 곳이다. */
 export interface ProjectDocument {
   id: string;
   projectId: string;
   fileName: string;
-  kind: string; // 계약서, 제안서, 회의록 등
-  uploadedAt: string; // ISO
-  inContext: boolean; // AI 컨텍스트 포함 여부
+  kind: string; // 제안서, 계약서, 회의록 …
 }
 
-/** AI가 요청을 검토한 결과의 성격. 색과 문구로 구분해 표시한다. */
-export type AnalysisVerdict = 'needs_clarification' | 'scope_change' | 'in_scope';
+/** 구현 항목 한 줄. 프로젝트 컨텍스트와 분석의 개발 현황이 함께 쓴다. */
+export type DevState = 'done' | 'progress' | 'todo';
 
-/** 판단 근거가 된 문서 인용. sourceDocId로 좌측 문서를 강조 연결한다. */
+export interface DevItem {
+  state: DevState;
+  text: string;
+}
+
+/** GitHub에서 읽어온 프로젝트 개발 현황. 원본을 그대로 늘어놓지 않고 기능 단위로 접는다. */
+export interface RepoSnapshot {
+  projectId: string;
+  repo: string;
+  features: { name: string; items: DevItem[] }[];
+  openWork: { title: string; note: string }[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// 티켓
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 티켓 상태. 만들어진 순간부터 끝날 때까지 Active이고, 끝나면 Done 또는 Reject다.
+ * 셋 다 사람이 직접 바꾼다. 자동으로 넘어가지 않는다.
+ */
+export const TICKET_STATUS = ['Active', 'Done', 'Reject'] as const;
+export type TicketStatus = (typeof TICKET_STATUS)[number];
+
+/** 티켓 카테고리. 생성 시점에 정하고 이후 바꾸지 않는다. */
+export type TicketCategory =
+  | '기능 요청'
+  | '버그'
+  | '일반 질문'
+  | '계약 문의'
+  | '일정 문의'
+  | '디자인 수정';
+
+export interface Ticket {
+  ticketId: string;
+  projectId: string;
+  /** 짧은 요약 제목. */
+  title: string;
+  /** 지금 이 티켓이 어떤 상태인지 줄글 요약. */
+  summary: string;
+  status: TicketStatus;
+  category: TicketCategory;
+  /** 사람이 확정한 요구사항 한 줄. */
+  requirement: string;
+  /** 이 티켓에 마지막으로 붙은 고객 메시지. */
+  lastCustomerMessage: string | null;
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+}
+
+// ─────────────────────────────────────────────────────────────
+// 고객 메시지(Inbound)와 AI 분석
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 목록에서 지금 사람이 무엇을 해야 하는지. 티켓에 붙은 미답변 메시지가 이 단계를 정한다.
+ */
+export type WorkStage =
+  | 'to_analyze' // 새 메시지가 왔고 아직 분석 전
+  | 'to_reply' // 분석은 끝났고 사람이 판단·답변할 차례
+  | 'waiting' // 답변을 보내고 고객 회신을 기다리는 중
+  | 'idle'; // 지금 할 일이 없는 티켓
+
+/** 분석 결과 한 줄. 라벨과 값으로만 이뤄져 항목 구성이 메시지마다 달라진다. */
+export interface AnalysisField {
+  label: string;
+  /** 한 줄이면 value, 여러 줄이면 items를 쓴다. */
+  value?: string;
+  items?: string[];
+  /** 사람이 판단해야 하는 항목은 caution으로 표시한다. */
+  tone?: 'neutral' | 'caution';
+}
+
+/** 한 메시지 안에 섞여 있는 요청. 복합 메시지에서만 채운다. */
+export interface Intent {
+  kind: string; // 기능 요청, 일정 문의 …
+  text: string;
+}
+
+/** AI가 판단 근거로 삼은 컨텍스트 한 조각. */
 export interface Evidence {
-  id: string;
-  sourceDocId: string;
-  sourceLabel: string; // 화면에 보일 출처 이름
+  source: 'document' | 'ticket' | 'github' | 'message';
+  label: string; // 제안서, 관련 Ticket, GitHub …
+  title: string;
   quote: string;
 }
 
-export interface Analysis {
-  summary: string[]; // 요청 요약
-  verdict: AnalysisVerdict;
-  reasons: string[]; // 왜 이렇게 판단했는가
-  evidence: Evidence[];
-  questions: ClarificationQuestion[]; // AI가 제안하는 역질문
-}
-
-/** 고객에게 되물을 확인 질문. 사용자가 체크로 고르거나 직접 추가한다. */
-export interface ClarificationQuestion {
-  id: string;
-  text: string;
-  defaultSelected: boolean;
-}
-
-/** 한 건의 클라이언트 요청과 그에 대한 분석. */
-export interface ClientRequest {
-  id: string;
-  projectId: string;
-  channel: Channel;
-  from: string;
-  receivedAt: string; // ISO
+/** 고객 메시지에 필요한 만큼만 잘라 보여주는 개발 현황. */
+export interface DevContext {
+  /** 어떤 기능에 대한 현황인지. */
   subject: string;
+  items: DevItem[];
+  /** 진행 중인 관련 작업(PR·브랜치). */
+  relatedWork: { title: string; note: string }[];
+  /** 이 요청이 건드리게 될 코드 영역. */
+  impactAreas: string[];
+}
+
+/** AI가 확정할 수 없어 사람에게 입력받는 값. */
+export interface DecisionField {
+  id: string;
+  label: string;
+  type: 'money' | 'date' | 'text';
+  placeholder?: string;
+}
+
+/** 답변 초안의 어조. */
+export const TONES = ['base', 'friendly', 'short', 'firm'] as const;
+export type Tone = (typeof TONES)[number];
+
+export interface Analysis {
+  /** 지금 무슨 상황인지 한 줄. */
+  headline: string;
+  /** 여러 요청이 섞여 있으면 채운다. 비어 있으면 단일 요청이다. */
+  intents: Intent[];
+  fields: AnalysisField[];
+  /** 정보가 부족해 원인·범위를 특정할 수 없을 때 필요한 것들. */
+  missingInfo: string[];
+  devContext: DevContext | null;
+  evidence: Evidence[];
+  /** 관련 있어 보이는 기존 티켓. 반영 여부는 사람이 정한다. */
+  relatedTicketId: string | null;
+  /** 새 티켓을 만들 때 채워질 값. 사람이 누르기 전에는 만들지 않는다. */
+  ticketProposal: {
+    title: string;
+    category: TicketCategory;
+    requirement: string;
+    summary: string;
+  } | null;
+  decisionFields: DecisionField[];
+  /**
+   * 어조별 답변 초안.
+   * {{amount}} · {{dueDate}}는 사람이 확정한 값으로 치환된다. 확정 전에는 미정 문구가 들어간다.
+   */
+  drafts: Record<Tone, string>;
+}
+
+export interface Inbound {
+  inboundId: string;
+  channel: Channel;
+  projectId: string;
+  /** 티켓에 연결돼 있으면 티켓 id. 사람이 반영을 눌러야 채워진다. */
+  ticketId: string | null;
+  fromName: string;
+  fromEmail: string;
+  /** 슬랙이면 채널 이름, 이메일이면 제목. */
+  subject: string;
+  /** 목록과 제목에 쓰는 한 줄. 인사말을 걷어낸 핵심 문장이다. */
+  preview: string;
   body: string;
-  unread: boolean;
+  attachments: string[];
+  createdAt: string; // ISO
+  /** 목 데이터의 출발 상태. 사람이 분석·발송한 뒤에는 저장된 판단이 단계를 정한다. */
+  initialStage: Exclude<WorkStage, 'idle'>;
+  /** 인박스 목록에 보여줄 성격 라벨. */
+  category: TicketCategory;
   analysis: Analysis;
 }
 
-/** 답변 톤. 같은 내용을 관계와 상황에 맞게 다르게 표현한다. */
-export type Tone = 'friendly' | 'professional' | 'concise' | 'firm';
-
-/** 요구사항이 시간에 따라 어떻게 변해왔는지 보여주는 타임라인 항목. */
-export type TimelineKind = 'agreement' | 'request' | 'change';
-
-export interface TimelineEvent {
-  id: string;
+/** 고객에게 보낸 답변. 티켓의 지난 대화를 그리는 데 쓴다. */
+export interface Outbound {
+  outboundId: string;
+  channel: Channel;
   projectId: string;
-  date: string; // ISO yyyy-mm-dd
-  kind: TimelineKind;
-  title: string;
-  note?: string;
-}
-
-// ─────────────────────────────────────────────────────────────
-// 분석 API 응답 타입
-//
-// POST /api/analyze가 돌려주는 형태다.
-// 백엔드 core/domain.py의 Utterance·Evidence·RequirementState를 따라간다.
-// ─────────────────────────────────────────────────────────────
-
-/** 백엔드 분석이 쓰는 채널 이름. 위의 Channel과 값이 다르므로 섞어 쓰지 않는다. */
-export type AnalyzeChannel = '이메일' | '슬랙';
-
-/** 발화 한 줄. 근거 인용이 원문 어디였는지 되짚는 데 쓴다. */
-export interface Utterance {
-  index: number;
-  channel: AnalyzeChannel;
-  speaker: string;
-  text: string;
-}
-
-/** 요구사항의 근거 인용. 백엔드가 원문과 대조해 통과한 것만 내려준다. */
-export interface RequirementEvidence {
-  utteranceIndex: number;
-  quote: string;
+  ticketId: string | null;
+  toEmail: string;
+  body: string;
+  createdAt: string; // ISO
 }
 
 /**
- * 상태가 언제 어떻게 바뀌었는지. 요구사항 타임라인이 이 기록을 그린다.
- * byHuman이 사람의 확정과 AI 재분석을 가른다.
+ * 목록에 한 줄로 서는 일감. 단위는 언제나 티켓이다.
+ * 고객 메시지가 들어오면 관련 티켓에 붙고, 관련 티켓이 없으면 Active 티켓이 새로 만들어진다.
  */
-export interface StatusChange {
-  at: string; // ISO
-  fromStatus: RequirementStatus | null; // 처음 만들어졌으면 null
-  toStatus: RequirementStatus;
-  byHuman: boolean;
+export interface WorkItem {
+  ticket: Ticket;
+  /** 아직 답하지 않은 고객 메시지. 없으면 지금 할 일이 없다. */
+  pending: Inbound | null;
+  lastActivityAt: string;
 }
+
+// ─────────────────────────────────────────────────────────────
+// 사람의 판단 (localStorage에 남는다)
+// ─────────────────────────────────────────────────────────────
 
 /**
- * 금액·일정 결정.
- * aiProposedDecision은 AI가 대화 근거로 채워본 초안이고, decision은 사람이 확정한 값이다.
- * 계약에 반영되는 것은 decision뿐이다.
+ * 이 메시지를 어떻게 처리하기로 했는가.
+ * link   — 이 티켓의 변경으로 반영한다
+ * create — 별도 티켓으로 분리한다
+ * ignore — 티켓은 그대로 두고 답변만 한다
  */
-export interface Decision {
-  amountDelta: number; // 원. 0이면 추가 비용 없음
-  dueDate: string; // ISO yyyy-mm-dd
-  note?: string | null;
-}
+export type Handling = 'link' | 'create' | 'ignore';
 
-/** 대화에서 뽑아낸 요구사항 카드. */
-export interface Requirement {
-  id: string;
-  title: string;
-  status: RequirementStatus;
-  evidence: RequirementEvidence[];
-  history: StatusChange[];
-  aiProposedDecision: Decision | null;
-  decision: Decision | null;
-}
-
-export interface AnalyzeResult {
-  utterances: Utterance[];
-  requirements: Requirement[];
-}
-
-/** 답변 전에 클라이언트에게 되물을 확인 질문. */
-export interface ClarificationResult {
-  questions: string[];
-}
-
-/** 고객에게 보낼 답변 초안. 보내지는 않는다. 사람이 읽고 고쳐서 직접 보낸다. */
-export interface ReplyDraftResult {
-  draft: string;
-}
-
-/** 지금 상태에서 사람이 고를 수 있는 다음 상태. */
-export interface AllowedTransitions {
-  allowed: RequirementStatus[];
+export interface InboundDecision {
+  /** 처리 방식. null이면 아직 정하지 않았다. */
+  handling: Handling | null;
+  /** 반영·생성한 티켓 id. */
+  ticketId: string | null;
+  /** 결정 입력값. DecisionField.id를 키로 쓴다. */
+  values: Record<string, string>;
+  /** 사람이 고쳐 쓴 답변. null이면 초안 그대로다. */
+  replyText: string | null;
+  /** 발송 시각. null이면 아직 보내지 않았다. */
+  sentAt: string | null;
 }
