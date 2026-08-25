@@ -3,15 +3,18 @@
 // 프로젝트 화면. 이 프로젝트에 쌓인 티켓과 주고받은 파일을 본다.
 // 티켓 상태는 여기서도 사람이 직접 바꾼다.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, LoaderCircle, Paperclip } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
+import { Badge } from '@/components/Badge';
 import { MaterialsDrawer } from '@/components/MaterialsDrawer';
+import { ProjectChannels, missingChannels } from '@/components/ProjectChannels';
 import { ProjectStatusBadge } from '@/components/StatusBadges';
 import { TicketCard } from '@/components/TicketCard';
-import type { TicketStatus } from '@/types';
+import { listSourceLinks } from '@/lib/api';
+import type { SourceLink, TicketStatus } from '@/types';
 
 const won = (n: number | null) => (n === null ? '금액 미정' : '₩' + n.toLocaleString('ko-KR'));
 
@@ -20,6 +23,12 @@ export default function ProjectPage() {
   const { projects, workItems, loaded, error, changeTicketStatus } = useAppStore();
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
+
+  useEffect(() => {
+    // 실패해도 화면은 그대로 둔다. 연결 목록이 비어 보일 뿐이다.
+    listSourceLinks(id).then((res) => res.ok && setSourceLinks(res.data));
+  }, [id]);
 
   const project = projects.find((p) => p.projectId === id);
 
@@ -65,6 +74,8 @@ export default function ProjectPage() {
         <div className="mt-3 flex items-center gap-2">
           <h1 className="text-xl font-semibold tracking-tight">{project.name}</h1>
           <ProjectStatusBadge status={project.status} />
+          {/* 계약 상태와는 다른 축이다. Active인데 채널이 덜 붙어 있을 수 있다. */}
+          {missingChannels(sourceLinks).length > 0 && <Badge tone="warn">설정 필요</Badge>}
           <button
             type="button"
             onClick={() => setMaterialsOpen(true)}
@@ -86,6 +97,12 @@ export default function ProjectPage() {
         {project.description !== '' && (
           <p className="mt-2 text-sm leading-relaxed text-ink-muted">{project.description}</p>
         )}
+
+        <ProjectChannels
+          projectId={project.projectId}
+          links={sourceLinks}
+          onAdded={(link) => setSourceLinks((prev) => [...prev, link])}
+        />
 
         <div className="mt-6">
           <p className="text-xs text-ink-faint">

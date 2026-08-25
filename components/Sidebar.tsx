@@ -5,7 +5,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, FolderKanban, LogOut, Ticket } from 'lucide-react';
+import { ChevronDown, FolderKanban, LogOut, Settings, Ticket } from 'lucide-react';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { useAppStore } from '@/components/AppStore';
 import { LOGIN_PATH, logout } from '@/lib/auth';
@@ -18,6 +18,7 @@ const STATUS_DOT: Record<ProjectStatus, string> = {
   ACTIVE: 'bg-success',
   DRAFT: 'bg-warn',
   COMPLETED: 'bg-ink-faint',
+  REJECTED: 'bg-danger',
 };
 
 export function Sidebar() {
@@ -35,6 +36,7 @@ export function Sidebar() {
 
   const ticketsActive = pathname.startsWith('/tickets');
   const projectsActive = pathname === '/projects';
+  const settingsActive = pathname === '/settings';
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-surface">
@@ -114,6 +116,16 @@ export function Sidebar() {
             })}
           </ul>
         )}
+
+        <Link
+          href="/settings"
+          className={`mt-0.5 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+            settingsActive ? 'bg-paper font-medium text-ink' : 'text-ink-muted hover:bg-paper'
+          }`}
+        >
+          <Settings className="size-4" />
+          설정
+        </Link>
       </nav>
 
       <div className="border-t border-line p-3">

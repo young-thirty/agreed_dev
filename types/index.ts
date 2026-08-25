@@ -14,8 +14,12 @@ export type { ApiResult } from './api';
 /** 고객 메시지가 들어오는 채널. */
 export type Channel = 'email' | 'slack';
 
-/** 프로젝트 진행 상태. 문의 단계는 Draft, 계약 이후가 Active다. */
-export type ProjectStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED';
+/**
+ * 프로젝트 진행 상태. 문의 단계는 Draft, 계약 이후가 Active다.
+ * Draft에서 Active·Rejected로 가는 판단은 AI가 하고, Completed는 사람만 바꾼다.
+ * 어느 전환이든 사람이 직접 바꾸는 길은 남아 있다.
+ */
+export type ProjectStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'REJECTED';
 
 export interface Project {
   projectId: string;
@@ -30,6 +34,39 @@ export interface Project {
   createdAt: string; // ISO
   updatedAt: string;
   status: ProjectStatus;
+}
+
+/** 자료·대화가 들어오는 외부 채널. 백엔드 core/project_data.py의 SourceChannel과 같다. */
+export type SourceChannel = 'GMAIL' | 'SLACK' | 'GITHUB';
+
+/**
+ * 프로젝트에 붙은 채널 연결 하나.
+ *
+ * 이메일·슬랙 채널·저장소는 Project의 컬럼이 아니라 이 목록의 행으로 있다.
+ * 그래서 이메일을 여러 개 등록하는 것도 행을 늘리는 일이다.
+ * GET /api/projects/{id}/source-links
+ */
+export interface SourceLink {
+  sourceLinkId: string;
+  projectId: string;
+  sourceChannel: SourceChannel;
+  /** 화면에 보여줄 이름. 사람이 정한다. */
+  displayName: string;
+  /** 어느 계정·워크스페이스로 수집하는지. 서버가 채운다. */
+  connectionId: string | null;
+  /** GMAIL 전용. 이 주소와 주고받은 메일만 읽는다. */
+  counterpartyEmail: string | null;
+  /** SLACK 전용. 이 프로젝트 대화의 상위 스레드다. */
+  threadId: string | null;
+  /** SLACK 전용. 워크스페이스와 채널. */
+  teamId: string | null;
+  channelId: string | null;
+  /** GITHUB 전용. "owner/repo" 형식이다. */
+  repoFullName: string | null;
+  /** 같은 연결을 두 번 등록하지 않기 위한 키. */
+  locatorKey: string;
+  createdAt: string; // ISO
+  updatedAt: string;
 }
 
 /** 프로젝트 컨텍스트로 등록된 문서. AI가 근거를 찾는 곳이다. */
@@ -274,7 +311,7 @@ export interface InboundDecision {
 // ─────────────────────────────────────────────────────────────
 
 /** 자료가 들어온 채널. GITHUB은 저장소 대화라 파일 아카이브에는 잘 안 나온다. */
-export type MaterialSourceChannel = 'GMAIL' | 'SLACK' | 'GITHUB';
+export type MaterialSourceChannel = SourceChannel;
 
 /** 자료 분류 진행 상태. */
 export type MaterialClassificationStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
