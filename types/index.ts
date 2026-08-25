@@ -172,6 +172,17 @@ export interface StatusChange {
   byHuman: boolean;
 }
 
+/**
+ * 금액·일정 결정.
+ * aiProposedDecision은 AI가 대화 근거로 채워본 초안이고, decision은 사람이 확정한 값이다.
+ * 계약에 반영되는 것은 decision뿐이다.
+ */
+export interface Decision {
+  amountDelta: number; // 원. 0이면 추가 비용 없음
+  dueDate: string; // ISO yyyy-mm-dd
+  note?: string | null;
+}
+
 /** 대화에서 뽑아낸 요구사항 카드. */
 export interface Requirement {
   id: string;
@@ -179,6 +190,8 @@ export interface Requirement {
   status: RequirementStatus;
   evidence: RequirementEvidence[];
   history: StatusChange[];
+  aiProposedDecision: Decision | null;
+  decision: Decision | null;
 }
 
 export interface AnalyzeResult {
