@@ -11,14 +11,13 @@
 
 | 작업 영역 | 함께 읽을 문서 |
 |---|---|
-| `app/api/`, `core/`, `infra/`, `types/` 수정 | **`CLAUDE_BE.md`** |
-| `app/page.tsx`, `app/layout.tsx`, `components/`, `app/globals.css` 수정 | **`CLAUDE_FE.md`** |
-| 양쪽에 걸치는 작업 | 둘 다 |
+| `app/`, `components/`, `hooks/`, `lib/api-client.ts`, `types/` 수정 | **`CLAUDE_FE.md`** |
+| 서버/API 로직 | 이 저장소가 아니다. `young-thirty/agreed_be`의 규약을 읽는다 |
 
 AI 에이전트에게 작업을 시킬 때는 다음 문장을 프롬프트에 포함한다.
 
 ```
-CLAUDE.md와 CLAUDE_BE.md를 먼저 읽고 규약을 지켜서 작업해.
+CLAUDE.md와 CLAUDE_FE.md를 먼저 읽고 규약을 지켜서 작업해.
 ```
 
 ---
@@ -39,11 +38,11 @@ CLAUDE.md와 CLAUDE_BE.md를 먼저 읽고 규약을 지켜서 작업해.
 
 ## 2. 절대 규칙
 
-1. **단일 레포다.** 프론트엔드와 백엔드가 한 Next.js 프로젝트 안에 있다. 별도 서버를 만들지 않는다.
-2. **DB를 쓰지 않는다.** 상태는 React 상태와 localStorage로 관리한다.
-3. **테스트 코드를 작성하지 않는다.** 검증은 실행으로 한다.
-4. **인증·로그인이 없다.** 사용자 개념 자체가 없다.
-5. **`types/index.ts`가 공유 타입의 단일 원천이다.** 수정하려면 먼저 팀에 알린다.
+1. **이 저장소는 프론트엔드 전용이다.** API, MongoDB, AI, Gmail·Slack OAuth는 별도 FastAPI 저장소(`young-thirty/agreed_be`)가 담당한다.
+2. **이메일·비밀번호 로그인이 있다.** Google·Slack 연결은 로그인과 별개의 외부 채널 연동이다.
+3. **서버 데이터의 원천은 MongoDB다.** 사용자, 프로젝트, 계약, 문서, 대화, AI 결과를 localStorage에 저장하지 않는다.
+4. **인증은 서버의 HttpOnly 세션 쿠키를 사용한다.** JWT나 provider token을 JavaScript·localStorage에서 다루지 않는다.
+5. **`types/index.ts`는 백엔드 응답 스키마를 따라간다.** 수정하려면 먼저 백엔드와 맞춘다.
 6. **기능 명세가 확정되기 전에는 도메인 기능을 구현하지 않는다.** 지금은 뼈대만 세운다.
 
 ---
@@ -104,35 +103,22 @@ AI 에이전트가 흔히 저지르는 실수를 줄이기 위한 규칙이다. 
 ## 4. 폴더 구조와 담당
 
 ```
-├─ app/
-│  ├─ page.tsx              화면              → 프론트
-│  ├─ layout.tsx            레이아웃           → 프론트
-│  ├─ globals.css           디자인 토큰        → 프론트
-│  └─ api/                  서버 로직          → 백엔드
-│
-├─ core/                    도메인 계층        → 백엔드
-│  └─ (프레임워크 무관 순수 TypeScript)
-│
-├─ infra/                   외부 의존 계층     → 백엔드
-│  ├─ llm/                  AI 호출
-│  └─ storage/              저장소 어댑터
-│
-├─ components/              UI 컴포넌트        → 프론트
-├─ types/index.ts           공유 타입          → 백엔드가 확정, 양쪽이 참조
-└─ lib/                     공용 유틸          → 수정 시 공지
+├─ app/                     Next.js 화면·레이아웃
+├─ components/              UI 컴포넌트
+├─ hooks/                   화면 전용 훅
+├─ types/index.ts           백엔드 응답 타입을 반영
+└─ lib/api-client.ts        FastAPI 호출 래퍼
 ```
 
 ### 담당 경계
 
-- 프론트는 `app/api/`, `core/`, `infra/`를 수정하지 않는다.
-- 백엔드는 `components/`, `app/page.tsx`를 수정하지 않는다.
-- `types/index.ts`와 `lib/`는 공용이다. 바꾸기 전에 알린다.
+- 이 저장소에 `app/api/`, `core/`, `infra/` 서버 코드를 새로 만들지 않는다.
+- `feat/#6`의 Gmail·Slack 서버 코드는 동작 확인용 원본이며 FastAPI로 이관한다. 병합 후에는 화면 컴포넌트와 API 호출부만 남긴다.
+- `types/index.ts`는 FastAPI의 camelCase 응답을 그대로 반영한다.
 
 ### 계층 규칙
 
-**`core/`는 프레임워크를 import하지 않는다.** `next`, `react`, `fetch`가 등장하면 안 된다. 순수 함수와 타입만 둔다. 이 규칙이 지켜져야 나중에 저장소나 프레임워크를 바꿀 때 도메인 로직을 그대로 옮길 수 있다.
-
-외부에 의존하는 코드는 전부 `infra/`에 둔다.
+API 호출은 `lib/api-client.ts` 한 곳을 통하며 FastAPI 주소를 기준으로 한다. 쿠키 세션을 보내도록 `credentials: 'include'`를 항상 사용한다.
 
 ---
 
@@ -143,15 +129,16 @@ AI 에이전트가 흔히 저지르는 실수를 줄이기 위한 규칙이다. 
 | 프레임워크 | Next.js (App Router) |
 | 언어 | TypeScript |
 | 스타일 | Tailwind CSS |
-| 검증 | Zod |
-| AI | Anthropic API |
-| 저장소 | localStorage (DB 없음) |
-| 배포 | Vercel |
+| 서버 | FastAPI (`agreed_be`) |
+| 인증 | 서버측 opaque session + HttpOnly cookie |
+| 저장소 | MongoDB (`agreed_be`가 관리) |
+| AI | DeepSeek (`agreed_be`가 호출) |
+| 배포 | 프론트·백엔드 모두 AWS 기준 |
 
 ### 인프라 규칙
 
-- 배포는 Vercel 한 곳이다. 별도 서버나 컨테이너를 만들지 않는다.
-- 비밀 키는 `.env.local`에만 둔다. 클라이언트 코드에서 참조하지 않는다.
+- 이 저장소에는 AI·Google·Slack client secret과 provider token을 두지 않는다.
+- 프론트 환경변수에는 브라우저에 공개되어도 되는 FastAPI 주소만 둔다.
 - 환경변수에 `NEXT_PUBLIC_` 접두사를 붙이면 브라우저에 노출된다. API 키에는 절대 붙이지 않는다.
 - 새 라이브러리를 추가하기 전에 팀에 묻는다.
 
@@ -234,10 +221,10 @@ docs: 규약 문서 추가
 
 시간과 복잡도를 낭비하는 목록이다. 요청받아도 되묻는다.
 
-- 테스트 코드
-- 로그인, 인증, 사용자 관리
-- 데이터베이스, ORM, 마이그레이션
-- 별도 백엔드 서버
+- Next.js API route에서 Gmail·Slack OAuth 또는 AI 호출
+- 사용자·프로젝트·계약·문서·대화·AI 결과를 localStorage에 영속화
+- access token, refresh token, Slack bot token을 브라우저 쿠키 값이나 localStorage로 직접 관리
+- 로그인과 Google·Slack 연동을 하나의 흐름으로 취급
 - 모바일 반응형
 - 다크 모드
 - 국제화
