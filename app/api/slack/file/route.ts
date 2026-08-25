@@ -39,6 +39,8 @@ export async function GET(req: Request) {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok || res.body === null) {
+      // Slack이 왜 거절했는지(권한 부족, 만료된 링크 등)를 알아야 다음에 원인을 좁힐 수 있다
+      console.error('[slack] 파일 프록시 실패', res.status, await res.text().catch(() => ''));
       return new Response('파일을 가져오지 못했습니다.', { status: 502 });
     }
     return new Response(res.body, {
