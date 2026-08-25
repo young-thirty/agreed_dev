@@ -6,13 +6,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Pencil, PlayCircle } from 'lucide-react';
+import { ArrowLeft, Paperclip, Pencil, PlayCircle } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
 import { Button } from '@/components/Button';
 import { ProjectStatusBadge } from '@/components/StatusBadges';
 import { RequirementTimeline } from '@/components/RequirementTimeline';
 import { ClientEmailThread } from '@/components/ClientEmailThread';
 import { RequirementExtractor } from '@/components/RequirementExtractor';
+import { MaterialsDrawer } from '@/components/MaterialsDrawer';
 
 const won = (n: number | null) => (n === null ? '금액 미정' : '₩' + n.toLocaleString('ko-KR'));
 
@@ -24,6 +25,7 @@ export default function ProjectWorkspace() {
   const project = projects.find((p) => p.projectId === id);
 
   const [tab, setTab] = useState<Tab>('requests');
+  const [materialsOpen, setMaterialsOpen] = useState(false);
 
   if (!project) {
     return (
@@ -67,6 +69,10 @@ export default function ProjectWorkspace() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <Button variant="outline" onClick={() => setMaterialsOpen(true)}>
+              <Paperclip className="size-4" />
+              파일
+            </Button>
             <Link href={`/projects/${project.projectId}/edit`}>
               <Button variant="outline">
                 <Pencil className="size-4" />
@@ -141,6 +147,10 @@ export default function ProjectWorkspace() {
             요구사항을 뽑을 수 있습니다.
           </p>
         </div>
+      )}
+
+      {materialsOpen && (
+        <MaterialsDrawer projectId={project.projectId} onClose={() => setMaterialsOpen(false)} />
       )}
     </div>
   );
