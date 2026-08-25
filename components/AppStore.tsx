@@ -38,6 +38,7 @@ interface AppStore {
   projectsError: string | null;
   reloadProjects: () => Promise<void>;
   createProject: (draft: ProjectDraft) => Promise<ApiResult<Project>>;
+  updateProject: (projectId: string, draft: ProjectDraft) => Promise<ApiResult<Project>>;
   setProjectStatus: (projectId: string, status: ProjectStatus) => Promise<void>;
 }
 
@@ -72,6 +73,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     return res;
   }, []);
 
+  const updateProject = useCallback(async (projectId: string, draft: ProjectDraft) => {
+    const res = await patch<Project>(`/api/projects/${projectId}`, draft);
+    if (res.ok) {
+      setProjects((prev) => prev.map((p) => (p.projectId === projectId ? res.data : p)));
+    }
+    return res;
+  }, []);
+
   const setProjectStatus = useCallback(async (projectId: string, status: ProjectStatus) => {
     const res = await patch<Project>(`/api/projects/${projectId}/status`, { status });
     if (res.ok) {
@@ -90,6 +99,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         projectsError,
         reloadProjects,
         createProject,
+        updateProject,
         setProjectStatus,
       }}
     >

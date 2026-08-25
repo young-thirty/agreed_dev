@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, PlayCircle } from 'lucide-react';
+import { ArrowLeft, Pencil, PlayCircle } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
 import { Button } from '@/components/Button';
 import { ProjectStatusBadge } from '@/components/StatusBadges';
@@ -58,7 +58,9 @@ export default function ProjectWorkspace() {
               <h1 className="text-xl font-semibold tracking-tight">{project.name}</h1>
               <ProjectStatusBadge status={project.status} />
             </div>
-            <p className="mt-1 text-sm text-ink-muted">{project.description}</p>
+            {project.description !== '' && (
+              <p className="mt-1 text-sm text-ink-muted">{project.description}</p>
+            )}
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-faint">
               <span>고객: {project.clientName}</span>
               <span>
@@ -67,12 +69,23 @@ export default function ProjectWorkspace() {
               <span>{won(project.contractPrice)}</span>
             </div>
           </div>
-          {project.status === 'DRAFT' && (
-            <Button variant="primary" onClick={() => setProjectStatus(project.projectId, 'ACTIVE')}>
-              <PlayCircle className="size-4" />
-              프로젝트 시작
-            </Button>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            <Link href={`/projects/${project.projectId}/edit`}>
+              <Button variant="outline">
+                <Pencil className="size-4" />
+                수정
+              </Button>
+            </Link>
+            {project.status === 'DRAFT' && (
+              <Button
+                variant="primary"
+                onClick={() => setProjectStatus(project.projectId, 'ACTIVE')}
+              >
+                <PlayCircle className="size-4" />
+                프로젝트 시작
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* 탭 — 토스식 세그먼트 컨트롤(회색 트랙 위 흰 활성 pill) */}
