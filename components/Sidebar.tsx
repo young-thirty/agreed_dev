@@ -18,6 +18,7 @@ const STATUS_DOT: Record<ProjectStatus, string> = {
   ACTIVE: 'bg-success',
   DRAFT: 'bg-warn',
   COMPLETED: 'bg-ink-faint',
+  REJECTED: 'bg-danger',
 };
 
 export function Sidebar() {

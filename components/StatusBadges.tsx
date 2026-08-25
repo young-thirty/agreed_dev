@@ -7,6 +7,7 @@ const PROJECT_STATUS: Record<ProjectStatus, { label: string; tone: BadgeTone }> 
   DRAFT: { label: 'Draft', tone: 'warn' },
   ACTIVE: { label: 'Active', tone: 'success' },
   COMPLETED: { label: 'Completed', tone: 'neutral' },
+  REJECTED: { label: 'Rejected', tone: 'danger' },
 };
 
 export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {

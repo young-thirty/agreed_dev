@@ -14,8 +14,12 @@ export type { ApiResult } from './api';
 /** 고객 메시지가 들어오는 채널. */
 export type Channel = 'email' | 'slack';
 
-/** 프로젝트 진행 상태. 문의 단계는 Draft, 계약 이후가 Active다. */
-export type ProjectStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED';
+/**
+ * 프로젝트 진행 상태. 문의 단계는 Draft, 계약 이후가 Active다.
+ * Draft에서 Active·Rejected로 가는 판단은 AI가 하고, Completed는 사람만 바꾼다.
+ * 어느 전환이든 사람이 직접 바꾸는 길은 남아 있다.
+ */
+export type ProjectStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'REJECTED';
 
 export interface Project {
   projectId: string;
