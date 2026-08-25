@@ -123,7 +123,7 @@ export interface ClientRequest {
 }
 
 /** 답변 톤. 같은 내용을 관계와 상황에 맞게 다르게 표현한다. */
-export type Tone = 'friendly' | 'professional' | 'concise' | 'firm';
+export type Tone = 'friendly' | 'professional' | 'concise' | 'firm' | 'decline';
 
 /** 요구사항이 시간에 따라 어떻게 변해왔는지 보여주는 타임라인 항목. */
 export type TimelineKind = 'agreement' | 'request' | 'change';
@@ -161,12 +161,24 @@ export interface RequirementEvidence {
   quote: string;
 }
 
+/**
+ * 상태가 언제 어떻게 바뀌었는지. 요구사항 타임라인이 이 기록을 그린다.
+ * byHuman이 사람의 확정과 AI 재분석을 가른다.
+ */
+export interface StatusChange {
+  at: string; // ISO
+  fromStatus: RequirementStatus | null; // 처음 만들어졌으면 null
+  toStatus: RequirementStatus;
+  byHuman: boolean;
+}
+
 /** 대화에서 뽑아낸 요구사항 카드. */
 export interface Requirement {
   id: string;
   title: string;
   status: RequirementStatus;
   evidence: RequirementEvidence[];
+  history: StatusChange[];
 }
 
 export interface AnalyzeResult {
@@ -182,4 +194,9 @@ export interface ClarificationResult {
 /** 고객에게 보낼 답변 초안. 보내지는 않는다. 사람이 읽고 고쳐서 직접 보낸다. */
 export interface ReplyDraftResult {
   draft: string;
+}
+
+/** 지금 상태에서 사람이 고를 수 있는 다음 상태. */
+export interface AllowedTransitions {
+  allowed: RequirementStatus[];
 }

@@ -7,13 +7,20 @@
 // 다른 점은 하나다. 확인 질문과 초안 문구를 화면이 만들지 않고 백엔드가 만든다.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
-import { post } from '@/lib/api-client';
+import { Check, Sparkles } from 'lucide-react';
+import { get, post } from '@/lib/api-client';
 import { Button } from './Button';
 import { ClarificationList, type EditableQuestion } from './ClarificationList';
 import { RequirementStatusBadge } from './StatusBadges';
 import { ResponseComposer } from './ResponseComposer';
-import type { ClarificationResult, ReplyDraftResult, Requirement, Tone } from '@/types';
+import type {
+  AllowedTransitions,
+  ClarificationResult,
+  ReplyDraftResult,
+  Requirement,
+  RequirementStatus,
+  Tone,
+} from '@/types';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -29,15 +36,22 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function RequirementAnalysisPanel({
   projectId,
   requirement,
+  onConfirmed,
 }: {
   projectId: string;
   requirement: Requirement;
+  /** 상태를 확정한 뒤 목록을 다시 읽게 한다. 타임라인에도 그때 반영된다. */
+  onConfirmed: () => void;
 }) {
   const [questions, setQuestions] = useState<EditableQuestion[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const [tone, setTone] = useState<Tone>('professional');
   const [draftLoading, setDraftLoading] = useState(false);
+  // null이면 아직 못 받아온 것이다. 빈 배열(정말 갈 곳이 없음)과 구분한다.
+  const [allowed, setAllowed] = useState<RequirementStatus[] | null>(null);
+  const [pending, setPending] = useState<RequirementStatus | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const base = `/api/projects/${projectId}/requirements/${requirement.id}`;
@@ -70,6 +84,33 @@ export function RequirementAnalysisPanel({
       cancelled = true;
     };
   }, [base]);
+
+  // 지금 상태에서 갈 수 있는 곳만 보여준다. 못 가는 상태를 고르게 두면 저장에서 막힌다.
+  useEffect(() => {
+    let cancelled = false;
+    setPending(null);
+    setAllowed(null);
+    get<AllowedTransitions>(`${base}/allowed`).then((res) => {
+      if (!cancelled && res.ok) setAllowed(res.data.allowed);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [base, requirement.status]);
+
+  async function confirm() {
+    if (pending === null) return;
+    setConfirming(true);
+    setMessage(null);
+
+    const res = await post<Requirement>(`${base}/transition`, { to: pending });
+    setConfirming(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    onConfirmed();
+  }
 
   const generate = useCallback(
     async (nextTone: Tone) => {
@@ -142,6 +183,49 @@ export function RequirementAnalysisPanel({
               ])
             }
           />
+        )}
+      </Section>
+
+      <Section title="확정">
+        <p className="mb-2 text-xs text-ink-faint">
+          고른 상태로 저장되고 요구사항 타임라인에 남습니다. 무엇으로 확정할지는 사람이 정합니다.
+        </p>
+        {allowed === null ? (
+          <p className="text-xs text-ink-faint">고를 수 있는 상태를 확인하는 중…</p>
+        ) : allowed.length === 0 ? (
+          <p className="text-xs text-ink-faint">더 이상 바꿀 수 있는 상태가 없습니다.</p>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-1.5">
+              {allowed.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setPending(status)}
+                  className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                    pending === status
+                      ? 'border-accent bg-accent-soft text-accent'
+                      : 'border-line bg-surface text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+            <Button
+              variant="primary"
+              onClick={confirm}
+              disabled={pending === null || confirming}
+              className="mt-2 w-full"
+            >
+              <Check className="size-4" />
+              {confirming
+                ? '저장하는 중…'
+                : pending === null
+                  ? '상태를 고르세요'
+                  : `‘${pending}’(으)로 확정`}
+            </Button>
+          </>
         )}
       </Section>
 

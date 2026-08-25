@@ -171,6 +171,7 @@ export function RequirementExtractor({
             key={selected.id}
             projectId={project.projectId}
             requirement={selected}
+            onConfirmed={loadSaved}
           />
         ) : (
           <p className="text-sm text-ink-muted">

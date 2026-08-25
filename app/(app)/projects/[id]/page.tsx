@@ -3,7 +3,7 @@
 // 프로젝트 워크스페이스. 프로토타입의 핵심 화면이다.
 // 요구사항을 고르면 오른쪽에서 근거 · 확인 질문 · 답변 초안으로 이어진다.
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Pencil, PlayCircle } from 'lucide-react';
@@ -13,7 +13,6 @@ import { ProjectStatusBadge } from '@/components/StatusBadges';
 import { RequirementTimeline } from '@/components/RequirementTimeline';
 import { ClientEmailThread } from '@/components/ClientEmailThread';
 import { RequirementExtractor } from '@/components/RequirementExtractor';
-import { timelineOf } from '@/mocks';
 
 const won = (n: number | null) => (n === null ? '금액 미정' : '₩' + n.toLocaleString('ko-KR'));
 
@@ -23,8 +22,6 @@ export default function ProjectWorkspace() {
   const { id } = useParams<{ id: string }>();
   const { projects, projectsLoaded, setProjectStatus } = useAppStore();
   const project = projects.find((p) => p.projectId === id);
-
-  const timeline = useMemo(() => (id ? timelineOf(id) : []), [id]);
 
   const [tab, setTab] = useState<Tab>('requests');
 
@@ -116,7 +113,7 @@ export default function ProjectWorkspace() {
       {/* 본문 */}
       {tab === 'timeline' ? (
         <div className="p-8">
-          <RequirementTimeline events={timeline} />
+          <RequirementTimeline projectId={project.projectId} />
         </div>
       ) : tab === 'email' && project.clientEmail ? (
         <div className="p-8">

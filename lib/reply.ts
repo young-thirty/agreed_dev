@@ -11,4 +11,6 @@ export const TONE_OPTIONS: { value: Tone; label: string }[] = [
   { value: 'professional', label: 'Professional' },
   { value: 'concise', label: 'Concise' },
   { value: 'firm', label: 'Firm' },
+  // 거절은 말투가 아니라 사람이 내린 결정이다. 고를 때만 거절하는 초안이 나온다.
+  { value: 'decline', label: '거절' },
 ];
