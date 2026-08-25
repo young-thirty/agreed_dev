@@ -6,15 +6,11 @@
 // 그래서 이메일을 여러 개 등록하는 것도 여기서 행을 늘리는 일로 끝난다.
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { GitBranch, LoaderCircle, Mail, MessageSquare, Plus, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { SlackChannelPicker } from '@/components/SlackChannelPicker';
-import {
-  createSourceLink,
-  getGithubStatus,
-  getGmailStatus,
-  type SourceLinkInput,
-} from '@/lib/api';
+import { createSourceLink, getGmailStatus, type SourceLinkInput } from '@/lib/api';
 import type { SourceChannel, SourceLink } from '@/types';
 
 const CHANNEL: Record<SourceChannel, { label: string; icon: LucideIcon; addLabel: string }> = {
@@ -47,16 +43,12 @@ export function ProjectChannels({
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 프로젝트에 채널을 붙이기 전에 계정 연동이 먼저 돼 있어야 한다.
+  // 메일은 계정을 먼저 연결해야 읽는다. 저장소는 서버 토큰으로 읽으므로 연결이 필요 없다.
   const [gmail, setGmail] = useState<string | null>(null);
-  const [github, setGithub] = useState<string | null>(null);
 
   useEffect(() => {
     getGmailStatus().then((res) => {
       if (res.ok && res.data.connected) setGmail(res.data.email);
-    });
-    getGithubStatus().then((res) => {
-      if (res.ok && res.data.connected) setGithub(res.data.accountName);
     });
   }, []);
 
@@ -143,7 +135,6 @@ export function ProjectChannels({
                       onChange={setValue}
                       busy={busy}
                       gmail={gmail}
-                      github={github}
                       onCancel={() => setOpen(null)}
                       onSubmit={() =>
                         submit(
@@ -181,7 +172,6 @@ function TextForm({
   onChange,
   busy,
   gmail,
-  github,
   onCancel,
   onSubmit,
 }: {
@@ -190,22 +180,22 @@ function TextForm({
   onChange: (next: string) => void;
   busy: boolean;
   gmail: string | null;
-  github: string | null;
   onCancel: () => void;
   onSubmit: () => void;
 }) {
   const isEmail = channel === 'GMAIL';
-  const account = isEmail ? gmail : github;
   const trimmed = value.trim();
   // 저장소는 owner/repo 형식이어야 서버가 받는다. 보내기 전에 여기서 막는다.
   const ready = isEmail ? trimmed.includes('@') : trimmed.split('/').length === 2;
 
-  if (account === null) {
+  if (isEmail && gmail === null) {
     return (
       <p className="text-xs text-ink-faint">
-        {isEmail
-          ? 'Gmail이 아직 연결되지 않았습니다. Gmail을 연결한 뒤 주소를 등록할 수 있습니다.'
-          : 'GitHub이 아직 연결되지 않았습니다. GitHub을 연결한 뒤 저장소를 등록할 수 있습니다.'}
+        Gmail이 아직 연결되지 않았습니다.{' '}
+        <Link href="/settings" className="text-accent hover:underline">
+          설정
+        </Link>
+        에서 연결한 뒤 주소를 등록할 수 있습니다.
       </p>
     );
   }
@@ -227,8 +217,8 @@ function TextForm({
       />
       <p className="text-xs text-ink-faint">
         {isEmail
-          ? `${account} 계정으로 이 주소와 주고받은 메일을 읽습니다.`
-          : `${account} 계정으로 저장소를 읽습니다.`}
+          ? `${gmail} 계정으로 이 주소와 주고받은 메일을 읽습니다.`
+          : '공개 저장소이거나 서버에 권한이 있는 저장소여야 읽습니다.'}
       </p>
       <div className="flex gap-2">
         <Button size="sm" variant="primary" type="submit" disabled={!ready || busy}>

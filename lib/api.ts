@@ -133,15 +133,20 @@ export function listSlackChannels(teamId: string): Promise<ApiResult<SlackChanne
   return post<SlackChannel[]>('/api/slack/channels', { teamId });
 }
 
-/** 계정 단위 연동 상태. 프로젝트에 채널을 붙이기 전에 이게 먼저 연결돼 있어야 한다. */
-export function getGmailStatus(): Promise<ApiResult<{ connected: boolean; email: string | null }>> {
-  return get<{ connected: boolean; email: string | null }>('/api/email/status');
+/**
+ * 공개 채널에 봇을 넣는다. 봇이 없으면 대화를 읽지 못한다.
+ * 비공개 채널은 이걸로 안 되고, 슬랙에서 사람이 직접 초대해야 한다.
+ */
+export function joinSlackChannel(
+  teamId: string,
+  channelId: string,
+): Promise<ApiResult<{ joined: boolean }>> {
+  return post<{ joined: boolean }>('/api/slack/join', { teamId, channelId });
 }
 
-export function getGithubStatus(): Promise<
-  ApiResult<{ connected: boolean; accountName: string | null }>
-> {
-  return get<{ connected: boolean; accountName: string | null }>('/api/github/status');
+/** Gmail 계정 연동 상태. 연결은 설정 화면에서 한다. */
+export function getGmailStatus(): Promise<ApiResult<{ connected: boolean; email: string | null }>> {
+  return get<{ connected: boolean; email: string | null }>('/api/email/status');
 }
 
 /** 연결된 저장소에 물어본다. GitHub 저장소가 연결돼 있어야 한다. */
