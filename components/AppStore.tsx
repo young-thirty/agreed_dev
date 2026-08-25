@@ -9,14 +9,15 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { DEFAULT_INTEGRATIONS, PROJECTS } from '@/mocks';
-import type { Channel, Integration, Project, ProjectStatus, User } from '@/types';
+import type { Integration, Project, ProjectStatus, User } from '@/types';
 
 interface AppStore {
   user: User | null;
   setUser: (user: User) => void;
 
+  // gmail·slack은 이제 FastAPI 세션·OAuth로 실제 연결 여부를 판단한다(EmailIntegrationPanel,
+  // SlackIntegrationPanel). 여기 integrations는 file·text처럼 항상 켜져 있는 소스만 남았다.
   integrations: Integration[];
-  toggleIntegration: (channel: Channel) => void;
 
   projects: Project[];
   addProject: (project: Project) => void;
@@ -27,16 +28,8 @@ const Ctx = createContext<AppStore | null>(null);
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = usePersistedState<User | null>('user', null);
-  const [integrations, setIntegrations] = usePersistedState<Integration[]>(
-    'integrations',
-    DEFAULT_INTEGRATIONS,
-  );
+  const [integrations] = usePersistedState<Integration[]>('integrations', DEFAULT_INTEGRATIONS);
   const [projects, setProjects] = usePersistedState<Project[]>('projects', PROJECTS);
-
-  const toggleIntegration = (channel: Channel) =>
-    setIntegrations((prev) =>
-      prev.map((it) => (it.channel === channel ? { ...it, connected: !it.connected } : it)),
-    );
 
   const addProject = (project: Project) => setProjects((prev) => [project, ...prev]);
 
@@ -49,7 +42,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         user,
         setUser,
         integrations,
-        toggleIntegration,
         projects,
         addProject,
         setProjectStatus,

@@ -1,7 +1,8 @@
 'use client';
 
 // 연동 화면. 고객 요청이 들어오는 입력 채널을 관리한다.
-// gmail·slack은 실제 OAuth 없이 UI 상태만 토글하고, file·text는 항상 사용 가능한 직접 입력 소스다.
+// gmail·slack은 FastAPI 백엔드(agreed_be)와 실제 OAuth로 연결된다(feat/#6에서 검증).
+// file·text는 항상 사용 가능한 직접 입력 소스라 토글 없이 안내만 보여준다.
 
 import { useRouter } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
@@ -9,6 +10,8 @@ import { useAppStore } from '@/components/AppStore';
 import { Button } from '@/components/Button';
 import { Badge } from '@/components/Badge';
 import { CHANNEL_META } from '@/components/channelMeta';
+import { EmailIntegrationPanel } from '@/components/EmailIntegrationPanel';
+import { SlackIntegrationPanel } from '@/components/SlackIntegrationPanel';
 import type { Channel } from '@/types';
 
 // 채널별 한 줄 설명. 무엇이 연결되는지 사용자 말로 적는다.
@@ -20,8 +23,11 @@ const DESCRIPTION: Record<Channel, string> = {
 };
 
 export default function IntegrationsPage() {
-  const { integrations, toggleIntegration } = useAppStore();
+  const { integrations } = useAppStore();
   const router = useRouter();
+
+  // file·text는 항상 사용 가능한 입력 소스라 토글이 없다. gmail·slack은 각자의 실제 연동 패널이 담당한다.
+  const staticIntegrations = integrations.filter((it) => it.channel === 'file' || it.channel === 'text');
 
   return (
     <div className="max-w-2xl px-8 py-8">
@@ -41,42 +47,26 @@ export default function IntegrationsPage() {
 
       {/* 소스 목록 */}
       <ul className="mt-6 flex flex-col gap-3">
-        {integrations.map((it) => {
+        <EmailIntegrationPanel />
+        <SlackIntegrationPanel />
+
+        {staticIntegrations.map((it) => {
           const meta = CHANNEL_META[it.channel];
           const Icon = meta.icon;
-          const toggleable = it.channel === 'gmail' || it.channel === 'slack';
 
           return (
             <li
               key={it.channel}
-              className="flex items-center gap-4 rounded-md border border-line bg-surface px-4 py-3.5"
+              className="flex items-center gap-4 rounded-lg border border-line bg-surface px-4 py-3.5 shadow-card"
             >
               <Icon className="size-5 shrink-0 text-ink-muted" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-ink">{meta.label}</span>
-                  {toggleable ? (
-                    it.connected ? (
-                      <Badge tone="success">Connected</Badge>
-                    ) : (
-                      <Badge tone="neutral">Not connected</Badge>
-                    )
-                  ) : (
-                    <Badge tone="success">사용 가능</Badge>
-                  )}
+                  <Badge tone="success">사용 가능</Badge>
                 </div>
                 <p className="mt-0.5 text-xs text-ink-faint">{DESCRIPTION[it.channel]}</p>
               </div>
-
-              {toggleable && (
-                <Button
-                  variant={it.connected ? 'outline' : 'primary'}
-                  size="sm"
-                  onClick={() => toggleIntegration(it.channel)}
-                >
-                  {it.connected ? '연결 해제' : '연결'}
-                </Button>
-              )}
             </li>
           );
         })}
