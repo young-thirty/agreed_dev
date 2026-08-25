@@ -213,3 +213,43 @@ export interface ReplyDraftResult {
 export interface AllowedTransitions {
   allowed: RequirementStatus[];
 }
+
+// ─────────────────────────────────────────────────────────────
+// 프로젝트 자료 (첨부 파일 아카이브)
+//
+// GET /api/projects/{id}/materials가 돌려주는 형태다.
+// 백엔드 core/project_data.py·app/public_data.py의 public_material을 따라간다.
+// ─────────────────────────────────────────────────────────────
+
+/** 자료가 들어온 채널. GITHUB은 저장소 대화라 파일 아카이브에는 잘 안 나온다. */
+export type MaterialSourceChannel = 'GMAIL' | 'SLACK' | 'GITHUB';
+
+/** 자료 분류 진행 상태. */
+export type MaterialClassificationStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+/** AI가 붙인 문서 종류. 분류가 끝나기 전에는 null이다. */
+export type MaterialDocumentType =
+  | 'PROPOSAL'
+  | 'CONTRACT'
+  | 'REQUIREMENTS'
+  | 'MEETING_NOTES'
+  | 'OTHER';
+
+/** 메일 첨부·Slack 파일 등, 대화 중 오간 자료 하나. */
+export interface ProjectMaterial {
+  materialId: string;
+  projectId: string;
+  fileName: string;
+  direction: 'RECEIVED' | 'SENT';
+  communicatedAt: string; // ISO
+  classificationStatus: MaterialClassificationStatus;
+  documentType: MaterialDocumentType | null;
+  sourceChannel: MaterialSourceChannel | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  /** 어느 대화에서 온 파일인지. */
+  conversationTitle: string | null;
+  senderDisplay: string | null;
+  /** 원본을 내려받을 수 있는지. 큰 첨부는 목록에만 남고 원본은 없을 수 있다. */
+  hasFile: boolean;
+}

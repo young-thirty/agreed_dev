@@ -4,11 +4,17 @@
 // 이 프로젝트의 clientEmail 한 명과 주고받은 메일만 걸러서 평평한 목록으로 보여준다.
 
 import { useCallback, useEffect, useState } from 'react';
+import { Paperclip } from 'lucide-react';
 import { loadClientEmails } from '@/lib/client-emails';
 import { splitQuoted } from '@/lib/email-clean';
+import { formatFileSize } from '@/lib/format';
 import { Button } from './Button';
+import { FileViewerModal } from './FileViewerModal';
 import { ReconnectGmailModal } from './ReconnectGmailModal';
-import type { RawEmail } from '@/types/integrations';
+import type { EmailAttachment, RawEmail } from '@/types/integrations';
+
+/** 클릭하면 파일 뷰어가 여는 대상. 메일 첨부는 partId·messageId로 그 자리에서 읽는다. */
+type OpenAttachment = { messageId: string; attachment: EmailAttachment };
 
 const MAX_MESSAGES = 100;
 
@@ -106,16 +112,52 @@ function EmailBody({ body }: { body: string }) {
   );
 }
 
-export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
+/** 메일 하나에 딸린 첨부 목록. 눌러서 그 자리에서 읽는다(지금은 PDF·DOCX만). */
+function AttachmentChips({
+  messageId,
+  attachments,
+  onOpen,
+}: {
+  messageId: string;
+  attachments: EmailAttachment[];
+  onOpen: (target: OpenAttachment) => void;
+}) {
+  if (attachments.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1.5">
+      {attachments.map((attachment) => (
+        <button
+          key={attachment.id}
+          type="button"
+          onClick={() => onOpen({ messageId, attachment })}
+          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-paper px-2 py-1 text-xs text-ink-muted transition-colors hover:border-ink-faint hover:text-ink"
+        >
+          <Paperclip className="size-3" />
+          <span className="max-w-[220px] truncate">{attachment.filename}</span>
+          <span className="text-ink-faint">{formatFileSize(attachment.sizeBytes)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function ClientEmailThread({
+  projectId,
+  clientEmail,
+}: {
+  projectId: string;
+  clientEmail: string;
+}) {
   const [emails, setEmails] = useState<RawEmail[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [reconnect, setReconnect] = useState(false);
+  const [openAttachment, setOpenAttachment] = useState<OpenAttachment | null>(null);
 
   const load = useCallback(
     async (refresh: boolean) => {
       setLoading(true);
-      const res = await loadClientEmails(clientEmail, { refresh });
+      const res = await loadClientEmails(projectId, clientEmail, { refresh });
       setLoading(false);
 
       if (!res.ok) {
@@ -127,7 +169,7 @@ export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
       setMessage(null);
       setEmails(res.emails);
     },
-    [clientEmail],
+    [projectId, clientEmail],
   );
 
   useEffect(() => {
@@ -178,6 +220,11 @@ export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
                   </span>
                 </div>
                 <EmailBody body={email.body} />
+                <AttachmentChips
+                  messageId={email.id}
+                  attachments={email.attachments}
+                  onOpen={setOpenAttachment}
+                />
               </li>
             ))}
           </ul>
@@ -185,6 +232,15 @@ export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
       )}
 
       {reconnect && <ReconnectGmailModal onClose={() => setReconnect(false)} />}
+
+      {openAttachment && (
+        <FileViewerModal
+          fileName={openAttachment.attachment.filename}
+          mimeType={openAttachment.attachment.mimeType}
+          fetchPath={`/api/email/attachment?messageId=${encodeURIComponent(openAttachment.messageId)}&partId=${encodeURIComponent(openAttachment.attachment.id)}`}
+          onClose={() => setOpenAttachment(null)}
+        />
+      )}
     </div>
   );
 }

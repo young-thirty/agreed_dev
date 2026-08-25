@@ -72,6 +72,37 @@
   }
 }
 
+/*
+ * DOCX 뷰어(mammoth가 만든 HTML)에 최소한의 문서 서식을 준다.
+ * @tailwindcss/typography 없이 순수 CSS로 준다 — 새 플러그인 없이 유틸리티
+ * 클래스만으로는 innerHTML로 꽂힌 임의 태그(h1, table, strong…)를 못 꾸민다.
+ */
+.docx-preview :where(h1, h2, h3) {
+  margin: 1.25em 0 0.5em;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.docx-preview :where(p, ul, ol) {
+  margin: 0.6em 0;
+  line-height: 1.7;
+}
+.docx-preview :where(ul, ol) {
+  padding-left: 1.4em;
+}
+.docx-preview table {
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  width: 100%;
+}
+.docx-preview :where(th, td) {
+  border: 1px solid var(--color-line);
+  padding: 6px 10px;
+  text-align: left;
+}
+.docx-preview img {
+  max-width: 100%;
+}
+
 /* 모션 최소화를 켠 사용자에게는 애니메이션을 걷어낸다 */
 @media (prefers-reduced-motion: reduce) {
   *,

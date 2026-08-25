@@ -37,7 +37,22 @@ async function isDisconnected(): Promise<boolean> {
   return status.ok && !status.data.connected;
 }
 
+/**
+ * 방금 받은 메일 중 첨부가 있는 것만 자료 아카이브에 등록해 둔다.
+ * Gmail을 다시 부르지 않는다 — 이미 받아 둔 목록을 그대로 보낸다.
+ *
+ * 실패해도 화면에 알리지 않는다. 아카이브가 못 채워지는 것과 지금 화면에
+ * 메일을 보여주는 것은 별개다. 이 호출 하나 때문에 메일 조회 전체가
+ * 실패한 것처럼 보이면 안 된다.
+ */
+async function discoverMaterials(projectId: string, emails: RawEmail[]): Promise<void> {
+  const withAttachments = emails.filter((email) => email.attachments.length > 0);
+  if (withAttachments.length === 0) return;
+  await post(`/api/projects/${projectId}/materials/discover`, { emails: withAttachments });
+}
+
 export async function loadClientEmails(
+  projectId: string,
   clientEmail: string,
   options: { refresh?: boolean } = {},
 ): Promise<ClientEmailsResult> {
@@ -56,5 +71,6 @@ export async function loadClientEmails(
 
   const emails = emailsOf(res.data, clientEmail);
   cache.set(clientEmail, emails);
+  void discoverMaterials(projectId, emails);
   return { ok: true, emails, cached: false };
 }
