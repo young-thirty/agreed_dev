@@ -11,7 +11,7 @@ import { useAppStore } from '@/components/AppStore';
 import { CHANNEL_META } from '@/components/channelMeta';
 import { TicketStatusBadge } from '@/components/StatusBadges';
 import { relativeTime } from '@/lib/format';
-import type { WorkItem, WorkStage } from '@/types';
+import type { Channel, WorkItem, WorkStage } from '@/types';
 
 type Filter = 'todo' | 'all' | 'Active' | 'Done' | 'Reject';
 
@@ -24,6 +24,17 @@ const FILTERS: { key: Filter; label: string }[] = [
 ];
 
 const needsWork = (stage: WorkStage) => stage === 'to_analyze' || stage === 'to_reply';
+
+/** 메시지가 들어온 채널. 좁은 줄이라 이름 대신 아이콘으로 둔다. */
+function ChannelIcon({ channel }: { channel: Channel }) {
+  const meta = CHANNEL_META[channel];
+  const Icon = meta.icon;
+  return (
+    <span title={meta.label} className="shrink-0 text-ink-faint">
+      <Icon className="size-3.5" aria-label={meta.label} />
+    </span>
+  );
+}
 
 /** 지금 이 줄에서 무슨 일이 벌어지고 있는지 한 마디. */
 function hintOf(item: WorkItem, stage: WorkStage): string {
@@ -111,9 +122,8 @@ export function WorkList() {
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="whitespace-nowrap font-mono text-xs text-ink-faint">
-                    {ticket.ticketId}
-                  </span>
+                  {/* 어느 채널로 온 메시지인지. 답을 다 한 티켓에는 붙일 근거가 없다. */}
+                  {pending !== null && <ChannelIcon channel={pending.channel} />}
                   <TicketStatusBadge status={ticket.status} />
                   <span className="ml-auto shrink-0 text-xs text-ink-faint">
                     {relativeTime(item.lastActivityAt)}
@@ -132,12 +142,6 @@ export function WorkList() {
                 <div className="mt-1.5 flex items-center gap-1.5 text-xs text-ink-faint">
                   <FolderKanban className="size-3 shrink-0" />
                   <span className="truncate text-ink-muted">{project?.name ?? '미분류'}</span>
-                  {pending !== null && (
-                    <>
-                      <span>·</span>
-                      <span className="shrink-0">{CHANNEL_META[pending.channel].label}</span>
-                    </>
-                  )}
                   {hint !== '' && <span className="ml-auto shrink-0 text-ink-muted">{hint}</span>}
                 </div>
               </Link>
