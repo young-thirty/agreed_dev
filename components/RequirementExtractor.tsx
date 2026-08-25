@@ -4,9 +4,9 @@
 // 고객 메일 원문을 규칙으로 정리해 백엔드 분석에 넘기고, 돌아온 요구사항 카드를 보여준다.
 // 필요 없다고 판단한 카드는 사용자가 지운다. 지운 id만 프로젝트별로 남긴다.
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
-import { post } from '@/lib/api-client';
+import { get, post } from '@/lib/api-client';
 import { loadClientEmails } from '@/lib/client-emails';
 import { buildRawText, humanEmails } from '@/lib/email-clean';
 import { usePersistedState } from '@/hooks/usePersistedState';
@@ -43,7 +43,7 @@ export function RequirementExtractor({
   clientEmail: string;
 }) {
   const [requirements, setRequirements] = useState<Requirement[] | null>(null);
-  const [analyzedCount, setAnalyzedCount] = useState(0);
+  const [analyzedCount, setAnalyzedCount] = useState<number | null>(null);
   const [dismissed, setDismissed] = usePersistedState<string[]>(`dismissed:${project.id}`, []);
   // 화면의 프로젝트는 목 데이터라 백엔드 id가 없다. 처음 분석할 때 만들고 그 id를 기억한다.
   const [backendProjectId, setBackendProjectId] = usePersistedState<string | null>(
@@ -53,6 +53,23 @@ export function RequirementExtractor({
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [reconnect, setReconnect] = useState(false);
+
+  /**
+   * 저장된 요구사항을 불러온다.
+   *
+   * 분석 결과는 백엔드에 프로젝트별로 남아 있다. 화면을 떠났다 돌아왔다고
+   * 다시 분석할 이유가 없다. 여기서 읽어오면 AI 호출도 메일 조회도 없다.
+   */
+  const loadSaved = useCallback(async (analyzedProjectId: string) => {
+    const saved = await get<Requirement[]>(`/api/projects/${analyzedProjectId}/requirements`);
+    // 실패해도 조용히 둔다. 아직 아무것도 안 한 화면에 오류부터 띄우지 않는다.
+    if (saved.ok) setRequirements(saved.data);
+  }, []);
+
+  useEffect(() => {
+    if (backendProjectId === null) return;
+    loadSaved(backendProjectId);
+  }, [backendProjectId, loadSaved]);
 
   /** 분석은 프로젝트에 묶인다. 없으면 화면의 프로젝트 정보로 하나 만든다. */
   async function ensureBackendProject(): Promise<string | null> {
@@ -86,7 +103,7 @@ export function RequirementExtractor({
     }
 
     // '다시 분석'은 메일을 새로 받아온다. 첫 분석은 이미 받아둔 게 있으면 그걸 쓴다.
-    const inbox = await loadClientEmails(clientEmail, { refresh: requirements !== null });
+    const inbox = await loadClientEmails(clientEmail, { refresh: analyzedCount !== null });
     if (!inbox.ok) {
       setLoading(false);
       setMessage(inbox.error);
@@ -107,14 +124,16 @@ export function RequirementExtractor({
       rawText,
       channel: '이메일',
     });
-    setLoading(false);
     if (!result.ok) {
+      setLoading(false);
       setMessage(result.error);
       return;
     }
 
+    // 응답에는 이번에 뽑힌 것만 들어 있다. 화면에는 이 프로젝트에 쌓인 전부를 보여준다.
+    await loadSaved(analyzedProjectId);
+    setLoading(false);
     setAnalyzedCount(emails.length);
-    setRequirements(result.data.requirements);
     if (result.data.requirements.length === 0) {
       setMessage('메일에서 요구사항으로 볼 만한 내용을 찾지 못했습니다.');
     }
@@ -133,7 +152,11 @@ export function RequirementExtractor({
         </div>
         <Button variant="primary" onClick={analyze} disabled={loading}>
           <Sparkles className="size-4" />
-          {loading ? '분석 중…' : requirements === null ? '요구사항 추출' : '다시 분석'}
+          {loading
+            ? '분석 중…'
+            : requirements !== null && requirements.length > 0
+              ? '다시 분석'
+              : '요구사항 추출'}
         </Button>
       </div>
 
@@ -143,10 +166,10 @@ export function RequirementExtractor({
         </p>
       )}
 
-      {requirements !== null && (
+      {requirements !== null && requirements.length > 0 && (
         <p className="text-xs text-ink-faint">
-          메일 {analyzedCount}통에서 {requirements.length}건을 뽑았고, {visible.length}건을 보고
-          있습니다.
+          {analyzedCount !== null && `메일 ${analyzedCount}통을 분석했습니다. `}
+          요구사항 {requirements.length}건 중 {visible.length}건을 보고 있습니다.
         </p>
       )}
 
