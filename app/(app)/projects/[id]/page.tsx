@@ -14,11 +14,12 @@ import { DocumentsPanel } from '@/components/DocumentsPanel';
 import { RequestFeed } from '@/components/RequestFeed';
 import { AnalysisPanel } from '@/components/AnalysisPanel';
 import { RequirementTimeline } from '@/components/RequirementTimeline';
+import { ClientEmailThread } from '@/components/ClientEmailThread';
 import { documentsOf, requestsOf, timelineOf } from '@/mocks';
 
 const won = (n: number) => '₩' + n.toLocaleString('ko-KR');
 
-type Tab = 'requests' | 'timeline';
+type Tab = 'requests' | 'timeline' | 'email';
 
 export default function ProjectWorkspace() {
   const { id } = useParams<{ id: string }>();
@@ -86,6 +87,7 @@ export default function ProjectWorkspace() {
             [
               ['requests', '요청 분석'],
               ['timeline', '요구사항 타임라인'],
+              ...(project.clientEmail ? ([['email', '고객 이메일']] as const) : []),
             ] as const
           ).map(([key, label]) => (
             <button
@@ -108,6 +110,10 @@ export default function ProjectWorkspace() {
       {tab === 'timeline' ? (
         <div className="p-8">
           <RequirementTimeline events={timeline} />
+        </div>
+      ) : tab === 'email' && project.clientEmail ? (
+        <div className="p-8">
+          <ClientEmailThread clientEmail={project.clientEmail} />
         </div>
       ) : project.status === 'draft' ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">

@@ -60,6 +60,8 @@ export interface Project {
   id: string;
   name: string;
   clientName: string;
+  /** 있으면 프로젝트 화면에서 Gmail 연동 결과 중 이 주소와 주고받은 메일만 걸러 보여준다. */
+  clientEmail?: string;
   description: string;
   startDate: string; // ISO yyyy-mm-dd
   endDate: string;

@@ -22,6 +22,19 @@ export const DEFAULT_INTEGRATIONS: Integration[] = [
 // ─── 프로젝트 ────────────────────────────────────────────────
 export const PROJECTS: Project[] = [
   {
+    // Gmail 연동 확인용. clientEmail이 있는 유일한 프로젝트라, 프로젝트 화면의
+    // '고객 이메일' 탭에서 이 주소와 주고받은 메일만 실제로 걸러 보여준다.
+    id: 'email-integration-test',
+    name: '이메일 연동 테스트',
+    clientName: '테스트 클라이언트',
+    clientEmail: 'tjddbs2395@gmail.com',
+    description: 'Gmail 연동이 실제로 동작하는지 확인하기 위한 프로젝트.',
+    startDate: '2026-08-01',
+    endDate: '2026-12-31',
+    budget: 0,
+    status: 'active',
+  },
+  {
     id: 'acme',
     name: 'Acme Studio 웹사이트 리뉴얼',
     clientName: 'Acme Studio',
