@@ -1,6 +1,6 @@
 # CLAUDE_FE.md
 
-> 프론트엔드 작업 규약이다. `app/page.tsx`, `app/layout.tsx`, `components/`, `app/globals.css`를 수정할 때 읽는다.
+> 프론트엔드 작업 규약이다. `app/`, `components/`, `app/globals.css`를 수정할 때 읽는다.
 > `CLAUDE.md`의 공통 규약을 먼저 읽고 이 문서를 읽는다.
 
 ---
@@ -8,13 +8,15 @@
 ## 1. 담당 범위
 
 ```
-app/page.tsx          메인 화면. 상태를 여기서 들고 내려준다
+app/(app)/tickets/    티켓 목록 + 티켓 상세. 이 프로토타입의 핵심 화면이다
+app/(app)/projects/   프로젝트 목록 · 티켓 · 컨텍스트
 app/layout.tsx        전역 레이아웃
 app/globals.css       디자인 토큰
-components/           재사용 컴포넌트
+components/           재사용 컴포넌트 + AppStore(공유 상태)
+mocks/index.ts        목 데이터
 ```
 
-`app/api/`, `core/`, `infra/`는 건드리지 않는다. 필요한 변경이 있으면 백엔드에 요청한다.
+서버 로직은 이 저장소에 없다. 필요한 변경이 있으면 백엔드에 요청한다.
 
 ---
 
@@ -22,17 +24,17 @@ components/           재사용 컴포넌트
 
 ### 전역 상태 라이브러리를 쓰지 않는다
 
-Redux, Zustand, Recoil을 도입하지 않는다. `app/page.tsx`가 상태를 소유하고 props로 내려준다. 화면이 하나뿐이라 이걸로 충분하다.
+Redux, Zustand, Recoil을 도입하지 않는다. `components/AppStore.tsx`가 Context 하나로 목 데이터와 사람의 판단을 들고 있고, 화면은 거기서 읽는다.
 
 ### localStorage에 저장한다
 
 DB가 없으므로 브라우저에 저장한다. 실수로 새로고침해도 상태가 남아야 한다.
 
 ```ts
-const [contract, setContract] = usePersistedState<Contract | null>('contract', null);
+const [decisions, setDecisions] = usePersistedState<Record<string, InboundDecision>>('decisions', {});
 ```
 
-`usePersistedState`는 `useState`와 사용법이 같고 저장까지 처리한다.
+`usePersistedState`는 `useState`와 사용법이 같고 저장까지 처리한다. **사람이 내린 판단만 저장한다.** 목 데이터는 저장하지 않는다.
 
 ### 초기화 버튼은 필수다
 
@@ -40,24 +42,15 @@ const [contract, setContract] = usePersistedState<Contract | null>('contract', n
 
 ---
 
-## 3. 서버 호출
+## 3. 데이터
 
-`fetch`를 직접 부르지 않는다. `lib/api-client.ts`의 래퍼를 쓴다.
+서버 호출이 아직 없다. 화면이 쓰는 값은 전부 `mocks/index.ts`에서 온다.
 
-```ts
-const res = await post<Requirement[]>('/api/...', payload);
-if (!res.ok) {
-  // res.error를 화면에 표시한다
-  return;
-}
-// res.data 사용
-```
+목 데이터는 `types/index.ts`의 타입을 그대로 쓴다. 나중에 서버 호출로 바꿔도 컴파일 에러 없이 교체된다. 응답 규약(`{ ok, data }` / `{ ok, error }`)은 백엔드와 공유한다.
 
-응답 형태는 항상 `{ ok, data }` 또는 `{ ok, error }` 다. 이 규약은 백엔드와 공유한다.
+### AI가 바꾸는 것과 사람이 바꾸는 것을 섞지 않는다
 
-### 백엔드를 기다리지 않는다
-
-API가 준비되기 전에는 목 데이터로 화면을 완성한다. 타입이 같으므로 나중에 호출로 교체할 때 컴파일 에러 없이 바뀐다.
+분석 결과는 읽기만 한다. 티켓 생성·반영, 상태 변경, 발송은 사람이 누른 자리에서만 일어난다. 화면 문구도 그 경계를 흐리지 않게 쓴다.
 
 ---
 
