@@ -1,4 +1,4 @@
-import type { SlackChannel, SlackMessage } from '@/core/slack/types';
+import type { SlackChannel, SlackFile, SlackMessage } from '@/core/slack/types';
 
 // Slack Web API도 REST라 fetch로 충분하다. 공식 SDK(@slack/web-api)는 쓰지 않는다.
 // 참고: Slack은 HTTP 상태 코드가 아니라 응답 본문의 ok 필드로 성공 여부를 알린다.
@@ -105,10 +105,46 @@ export async function joinChannel(botToken: string, channelId: string): Promise<
   await slackApi('conversations.join', botToken, { channel: channelId });
 }
 
-type RawMessage = { type: string; subtype?: string; ts: string; user?: string; text?: string };
+type RawFile = { id: string; name: string; mimetype: string; url_private: string };
+type RawMessage = {
+  type: string;
+  subtype?: string;
+  ts: string;
+  user?: string;
+  text?: string;
+  reply_count?: number;
+  files?: RawFile[];
+};
 
 function tsToIso(ts: string): string {
   return new Date(Number(ts) * 1000).toISOString();
+}
+
+/** 원본 Slack 파일 주소를 우리 서버의 프록시 주소로 바꾼다. url_private은 봇 토큰 없이는 안 열린다. */
+function buildFileProxyUrl(teamId: string, urlPrivate: string): string {
+  const params = new URLSearchParams({ teamId, url: urlPrivate });
+  return `/api/slack/file?${params}`;
+}
+
+function toSlackFile(file: RawFile, teamId: string): SlackFile {
+  return {
+    id: file.id,
+    name: file.name,
+    isImage: file.mimetype.startsWith('image/'),
+    url: buildFileProxyUrl(teamId, file.url_private),
+  };
+}
+
+function toSlackMessage(m: RawMessage, teamId: string, names: Map<string, string>): SlackMessage {
+  return {
+    id: m.ts,
+    userId: m.user ?? '',
+    userName: (m.user && names.get(m.user)) || m.user || '알 수 없음',
+    text: m.text ?? '',
+    sentAt: tsToIso(m.ts),
+    replyCount: m.reply_count ?? 0,
+    files: (m.files ?? []).map((f) => toSlackFile(f, teamId)),
+  };
 }
 
 async function resolveUserNames(botToken: string, userIds: string[]): Promise<Map<string, string>> {
@@ -129,10 +165,17 @@ async function resolveUserNames(botToken: string, userIds: string[]): Promise<Ma
 }
 
 /**
- * 채널의 메시지를 가져온다. oldest를 넘기면 그 이후 메시지만 받는다 — 진짜 증분 폴링이 된다.
+ * 채널의 최상위 메시지를 가져온다. oldest를 넘기면 그 이후 메시지만 받는다 — 진짜 증분 폴링이 된다.
  * (이메일 API는 이 커서 개념이 없어서 매번 최근 N통을 통째로 다시 받았다.)
+ *
+ * 스레드 답글은 여기 안 들어있다. replyCount가 0보다 크면 fetchReplies로 따로 받아야 한다.
  */
-export async function fetchHistory(botToken: string, channelId: string, oldest?: string): Promise<SlackMessage[]> {
+export async function fetchHistory(
+  botToken: string,
+  teamId: string,
+  channelId: string,
+  oldest?: string,
+): Promise<SlackMessage[]> {
   const json = await slackApi<{ messages: RawMessage[] }>('conversations.history', botToken, {
     channel: channelId,
     limit: '50',
@@ -145,12 +188,31 @@ export async function fetchHistory(botToken: string, channelId: string, oldest?:
   const names = await resolveUserNames(botToken, userIds);
 
   return rawMessages
-    .map((m) => ({
-      id: m.ts,
-      userId: m.user ?? '',
-      userName: (m.user && names.get(m.user)) || m.user || '알 수 없음',
-      text: m.text ?? '',
-      sentAt: tsToIso(m.ts),
-    }))
+    .map((m) => toSlackMessage(m, teamId, names))
     .sort((a, b) => a.sentAt.localeCompare(b.sentAt)); // Slack은 최신순으로 주므로 오래된 순으로 뒤집는다
+}
+
+/**
+ * 스레드의 답글을 가져온다. Slack은 항상 부모 메시지를 첫 항목으로 끼워 주는데,
+ * 부모는 채널 목록에 이미 떠 있으므로 여기서는 답글만 남긴다.
+ */
+export async function fetchReplies(
+  botToken: string,
+  teamId: string,
+  channelId: string,
+  threadTs: string,
+  oldest?: string,
+): Promise<SlackMessage[]> {
+  const json = await slackApi<{ messages: RawMessage[] }>('conversations.replies', botToken, {
+    channel: channelId,
+    ts: threadTs,
+    limit: '100',
+    ...(oldest ? { oldest } : {}),
+  });
+
+  const rawReplies = json.messages.filter((m) => m.ts !== threadTs && m.type === 'message' && !m.subtype);
+  const userIds = [...new Set(rawReplies.map((m) => m.user).filter((id): id is string => id !== undefined))];
+  const names = await resolveUserNames(botToken, userIds);
+
+  return rawReplies.map((m) => toSlackMessage(m, teamId, names)).sort((a, b) => a.sentAt.localeCompare(b.sentAt));
 }

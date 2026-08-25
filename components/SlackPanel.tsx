@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { post } from '@/lib/api-client';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import type { SlackChannel, SlackMessage } from '@/core/slack/types';
+import { SlackMessageItem } from './SlackMessage';
+import { SlackThread } from './SlackThread';
 
 const POLL_INTERVAL_MS = 5_000;
 
@@ -15,15 +17,6 @@ const CONNECT_NOTICE: Record<string, string> = {
   failed: 'Slack 연결에 실패했습니다. 다시 시도해 주세요.',
 };
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleString('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 export function SlackPanel() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [selectedTeamId, setSelectedTeamId] = usePersistedState<string | null>('slack:team', null);
@@ -33,6 +26,7 @@ export function SlackPanel() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [expandedThreadTs, setExpandedThreadTs] = useState<string | null>(null);
 
   // 폴링마다 마지막으로 본 메시지 시각을 들고 있는다. 상태로 두면 클로저가 오래된 값을 참조하니 ref로 둔다.
   const oldestRef = useRef<string | undefined>(undefined);
@@ -81,6 +75,7 @@ export function SlackPanel() {
           return;
         }
       }
+      setExpandedThreadTs(null);
       setSelectedChannelId(channel.id);
     },
     [selectedTeamId, setSelectedChannelId],
@@ -201,12 +196,22 @@ export function SlackPanel() {
               <li className="px-4 py-3 text-sm text-ink-muted">아직 대화가 없습니다.</li>
             )}
             {messages.map((m) => (
-              <li key={m.id} className="flex flex-col gap-1 px-4 py-3 text-sm">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-medium">{m.userName}</span>
-                  <span className="text-xs text-ink-muted">{formatTime(m.sentAt)}</span>
-                </div>
-                <p className="text-ink-muted">{m.text}</p>
+              <li key={m.id} className="px-4 py-3 text-sm">
+                <SlackMessageItem message={m} />
+
+                {m.replyCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setExpandedThreadTs((prev) => (prev === m.id ? null : m.id))}
+                    className="mt-1 text-xs text-accent hover:underline"
+                  >
+                    {expandedThreadTs === m.id ? '답글 숨기기' : `답글 ${m.replyCount}개 보기`}
+                  </button>
+                )}
+
+                {expandedThreadTs === m.id && selectedTeamId !== null && selectedChannelId !== null && (
+                  <SlackThread teamId={selectedTeamId} channelId={selectedChannelId} threadTs={m.id} />
+                )}
               </li>
             ))}
           </ul>
