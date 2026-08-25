@@ -5,9 +5,9 @@
 ## 시작
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env.local   # ANTHROPIC_API_KEY 채우기
-npm run dev
+pnpm dev
 ```
 
 http://localhost:3000
