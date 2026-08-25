@@ -112,14 +112,16 @@ export function RequirementAnalysisPanel({
     onConfirmed();
   }
 
+  /** 초안은 말투와 '확정'에서 고른 상태를 함께 보고 만들어진다. */
   const generate = useCallback(
-    async (nextTone: Tone) => {
+    async (nextTone: Tone, nextIntent: RequirementStatus | null) => {
       setTone(nextTone);
       setDraftLoading(true);
       setMessage(null);
 
       const res = await post<ReplyDraftResult>(`${base}/reply`, {
         tone: nextTone,
+        intent: nextIntent,
         questions: questions.filter((q) => q.selected).map((q) => q.text),
       });
       setDraftLoading(false);
@@ -201,7 +203,11 @@ export function RequirementAnalysisPanel({
                 <button
                   key={status}
                   type="button"
-                  onClick={() => setPending(status)}
+                  onClick={() => {
+                    setPending(status);
+                    // 이미 만든 초안이 있으면 새 결정에 맞춰 다시 쓴다.
+                    if (draft !== null) generate(tone, status);
+                  }}
                   className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
                     pending === status
                       ? 'border-accent bg-accent-soft text-accent'
@@ -230,10 +236,13 @@ export function RequirementAnalysisPanel({
       </Section>
 
       <Section title="고객에게 보낼 답변">
+        <p className="mb-2 text-xs text-ink-faint">
+          위에서 고른 상태에 맞춰 씁니다. 고르지 않으면 확인 후 회신하겠다는 답이 나옵니다.
+        </p>
         {draft === null && !draftLoading ? (
           <Button
             variant="primary"
-            onClick={() => generate(tone)}
+            onClick={() => generate(tone, pending)}
             disabled={questionsLoading}
             className="w-full"
           >
@@ -244,7 +253,7 @@ export function RequirementAnalysisPanel({
           <ResponseComposer
             draft={draft ?? ''}
             tone={tone}
-            onToneChange={generate}
+            onToneChange={(nextTone) => generate(nextTone, pending)}
             loading={draftLoading}
           />
         )}

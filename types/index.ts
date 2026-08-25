@@ -123,7 +123,7 @@ export interface ClientRequest {
 }
 
 /** 답변 톤. 같은 내용을 관계와 상황에 맞게 다르게 표현한다. */
-export type Tone = 'friendly' | 'professional' | 'concise' | 'firm' | 'decline';
+export type Tone = 'friendly' | 'professional' | 'concise' | 'firm';
 
 /** 요구사항이 시간에 따라 어떻게 변해왔는지 보여주는 타임라인 항목. */
 export type TimelineKind = 'agreement' | 'request' | 'change';
