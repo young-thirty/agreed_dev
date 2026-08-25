@@ -28,70 +28,107 @@ export const REQUIREMENT_STATUS = [
 
 export type RequirementStatus = (typeof REQUIREMENT_STATUS)[number];
 
-/**
- * 대화가 들어온 채널. 예선 시연은 텍스트 붙여넣기로 받지만, 값 자체는
- * 나중에 실제로 연동할 두 채널(이메일·슬랙)을 그대로 쓴다. 카카오톡은
- * API가 없어 채널로 두지 않는다.
- */
-export const CHANNELS = ['이메일', '슬랙'] as const;
-export type Channel = (typeof CHANNELS)[number];
+// ─────────────────────────────────────────────────────────────
+// 프로토타입 도메인 타입
+//
+// 아래는 데모용 프로토타입이 화면을 그리기 위해 쓰는 타입이다.
+// 실제 백엔드가 붙기 전까지 mocks/index.ts가 이 타입으로 목 데이터를 채운다.
+// ─────────────────────────────────────────────────────────────
 
-/**
- * 발화 단위. L0(발화 분할)의 산출물이다.
- * index가 있어야 L2 근거 검증과 화면의 원문 하이라이트가 가능하다.
- */
-export type Utterance = {
-  index: number;
+/** 온보딩에서 입력받는 사용자. 인증은 없고 데모용 프로필일 뿐이다. */
+export interface User {
+  name: string;
+  email: string;
+  role: string;
+  isFreelancer: boolean;
+}
+
+/** 요청이 들어오는 입력 채널. */
+export type Channel = 'gmail' | 'slack' | 'file' | 'text';
+
+/** 연동 소스의 연결 상태. 실제 OAuth 없이 UI 상태만 바꾼다. */
+export interface Integration {
   channel: Channel;
-  speaker: string;
-  text: string;
-};
+  label: string;
+  connected: boolean;
+}
 
-/** 요구사항 카드가 원문 어디에 근거하는지. L2가 인용문을 원문과 대조한다. */
-export type Evidence = {
-  utteranceIndex: number;
-  quote: string;
-};
+/** 프로젝트 진행 상태. Draft에서 시작해 사람이 직접 Active로 올린다. */
+export type ProjectStatus = 'draft' | 'active' | 'completed';
 
-/** 계약서·제안서 어디에 근거가 있는지. 없으면 '없음'이다. */
-export type Basis =
-  | { kind: '계약서'; clause: string }
-  | { kind: '제안서'; clause: string }
-  | { kind: '없음' };
-
-/**
- * 금액·일정 결정. 사람만 채운다.
- *
- * `aiProposedDecision`은 AI가 대화 근거로 미리 채워보는 초안이고,
- * `decision`은 사람이 확정한 값이다. 화면에 반영되는 건 `decision`뿐이다.
- */
-export type Decision = {
-  amountDelta: number;
-  dueDate: string;
-  note?: string;
-};
-
-export type Requirement = {
+export interface Project {
   id: string;
-  title: string;
-  status: RequirementStatus;
+  name: string;
+  clientName: string;
+  /** 있으면 프로젝트 화면에서 Gmail 연동 결과 중 이 주소와 주고받은 메일만 걸러 보여준다. */
+  clientEmail?: string;
+  description: string;
+  startDate: string; // ISO yyyy-mm-dd
+  endDate: string;
+  budget: number; // 원
+  status: ProjectStatus;
+}
+
+/** 프로젝트 컨텍스트로 등록된 문서. 파일 자체는 분석하지 않는다. */
+export interface ProjectDocument {
+  id: string;
+  projectId: string;
+  fileName: string;
+  kind: string; // 계약서, 제안서, 회의록 등
+  uploadedAt: string; // ISO
+  inContext: boolean; // AI 컨텍스트 포함 여부
+}
+
+/** AI가 요청을 검토한 결과의 성격. 색과 문구로 구분해 표시한다. */
+export type AnalysisVerdict = 'needs_clarification' | 'scope_change' | 'in_scope';
+
+/** 판단 근거가 된 문서 인용. sourceDocId로 좌측 문서를 강조 연결한다. */
+export interface Evidence {
+  id: string;
+  sourceDocId: string;
+  sourceLabel: string; // 화면에 보일 출처 이름
+  quote: string;
+}
+
+export interface Analysis {
+  summary: string[]; // 요청 요약
+  verdict: AnalysisVerdict;
+  reasons: string[]; // 왜 이렇게 판단했는가
   evidence: Evidence[];
-  basis: Basis;
-  aiProposedDecision: Decision | null;
-  decision: Decision | null;
-};
+  questions: ClarificationQuestion[]; // AI가 제안하는 역질문
+}
 
-export type Contract = {
-  version: number;
-  scope: string[];
-  dueDate: string;
-  amount: number;
-};
+/** 고객에게 되물을 확인 질문. 사용자가 체크로 고르거나 직접 추가한다. */
+export interface ClarificationQuestion {
+  id: string;
+  text: string;
+  defaultSelected: boolean;
+}
 
-/** 계약 버전 간 변경분. 우측 화면의 diff 표시가 이 값을 그대로 그린다. */
-export type ContractDiff = {
-  scopeAdded: string[];
-  scopeRemoved: string[];
-  dueDateChanged: { before: string; after: string } | null;
-  amountDelta: number;
-};
+/** 한 건의 클라이언트 요청과 그에 대한 분석. */
+export interface ClientRequest {
+  id: string;
+  projectId: string;
+  channel: Channel;
+  from: string;
+  receivedAt: string; // ISO
+  subject: string;
+  body: string;
+  unread: boolean;
+  analysis: Analysis;
+}
+
+/** 답변 톤. 같은 내용을 관계와 상황에 맞게 다르게 표현한다. */
+export type Tone = 'friendly' | 'professional' | 'concise' | 'firm';
+
+/** 요구사항이 시간에 따라 어떻게 변해왔는지 보여주는 타임라인 항목. */
+export type TimelineKind = 'agreement' | 'request' | 'change';
+
+export interface TimelineEvent {
+  id: string;
+  projectId: string;
+  date: string; // ISO yyyy-mm-dd
+  kind: TimelineKind;
+  title: string;
+  note?: string;
+}
