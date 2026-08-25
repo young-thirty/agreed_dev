@@ -13,12 +13,16 @@ import { Button } from '@/components/Button';
 const inputClass =
   'rounded-md border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-ink-faint';
 
+// 백엔드가 메일 조회에 쓰는 형식과 같은 기준이다. 여기서 통과한 주소는 조회에서도 통과한다.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
+
 export default function NewProjectPage() {
   const { addProject } = useAppStore();
   const router = useRouter();
 
   const [name, setName] = useState('');
   const [clientName, setClientName] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -33,11 +37,18 @@ export default function NewProjectPage() {
       return;
     }
 
+    const email = clientEmail.trim();
+    if (email !== '' && !EMAIL_PATTERN.test(email)) {
+      setError('클라이언트 메일 주소를 확인하세요. 예: client@company.com');
+      return;
+    }
+
     const id = crypto.randomUUID();
     addProject({
       id,
       name: name.trim(),
       clientName: clientName.trim(),
+      ...(email === '' ? {} : { clientEmail: email }),
       description: description.trim(),
       startDate,
       endDate,
@@ -60,7 +71,9 @@ export default function NewProjectPage() {
       <h1 className="mt-3 text-xl font-semibold tracking-tight">새 프로젝트</h1>
 
       {/* 폼 */}
-      <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
+      {/* 검증은 handleSubmit이 전담한다. 브라우저 기본 검증이 먼저 걸리면
+          이 폼의 다른 항목과 다른 말투·다른 언어로 안내가 뜬다. */}
+      <form onSubmit={handleSubmit} noValidate className="mt-6 flex flex-col gap-5">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="name" className="text-sm text-ink">
             프로젝트 이름
@@ -83,6 +96,24 @@ export default function NewProjectPage() {
             onChange={(e) => setClientName(e.target.value)}
             className={inputClass}
           />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="clientEmail" className="text-sm text-ink">
+            클라이언트 메일
+          </label>
+          <input
+            id="clientEmail"
+            type="email"
+            value={clientEmail}
+            onChange={(e) => setClientEmail(e.target.value)}
+            placeholder="client@company.com"
+            className={inputClass}
+          />
+          <p className="text-xs text-ink-faint">
+            이 주소와 주고받은 메일에서 요구사항을 뽑습니다. 나중에 알아도 되지만, 없으면 메일
+            분석을 쓸 수 없습니다.
+          </p>
         </div>
 
         <div className="flex flex-col gap-1.5">
