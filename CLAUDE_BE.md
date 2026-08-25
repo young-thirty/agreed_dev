@@ -204,9 +204,15 @@ HTTP 상태 코드는 정상 200, 잘못된 입력 400, 서버 오류 500만 쓴
 - 프론트가 함께 참조하므로, 수정하려면 먼저 알린다.
 
 ```ts
-export const REQUIREMENT_STATUS = ['문의', '요청', '합의'] as const;
+export const REQUIREMENT_STATUS = [
+  '미확정', '문의', '요청', '제안',
+  '내부검토', '고객검토', '합의', '거절', '완료',
+] as const;
 export type RequirementStatus = (typeof REQUIREMENT_STATUS)[number];
 ```
+
+`'미확정'`은 진입 상태이자 강등 목적지다. 4절 L3의 강등 전략이 이 값을 전제로 한다.
+전이 규칙은 `core/requirement/state-machine.ts`에 있다.
 
 ---
 
