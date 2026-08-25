@@ -17,7 +17,7 @@ const inputClass =
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
 
 export default function NewProjectPage() {
-  const { addProject } = useAppStore();
+  const { createProject } = useAppStore();
   const router = useRouter();
 
   const [name, setName] = useState('');
@@ -28,8 +28,9 @@ export default function NewProjectPage() {
   const [endDate, setEndDate] = useState('');
   const [budget, setBudget] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim() || !clientName.trim()) {
@@ -43,19 +44,24 @@ export default function NewProjectPage() {
       return;
     }
 
-    const id = crypto.randomUUID();
-    addProject({
-      id,
+    setSaving(true);
+    setError('');
+    const created = await createProject({
       name: name.trim(),
       clientName: clientName.trim(),
-      ...(email === '' ? {} : { clientEmail: email }),
+      clientEmail: email === '' ? null : email,
       description: description.trim(),
-      startDate,
-      endDate,
-      budget: Number(budget),
-      status: 'draft',
+      startDate: startDate === '' ? null : startDate,
+      endDate: endDate === '' ? null : endDate,
+      contractPrice: budget === '' ? null : Number(budget),
     });
-    router.push(`/projects/${id}`);
+    setSaving(false);
+
+    if (!created.ok) {
+      setError(created.error);
+      return;
+    }
+    router.push(`/projects/${created.data.projectId}`);
   };
 
   return (
@@ -178,8 +184,8 @@ export default function NewProjectPage() {
         </p>
 
         <div className="flex items-center gap-2">
-          <Button type="submit" variant="primary">
-            프로젝트 만들기
+          <Button type="submit" variant="primary" disabled={saving}>
+            {saving ? '만드는 중…' : '프로젝트 만들기'}
           </Button>
           <Button type="button" variant="ghost" onClick={() => router.push('/dashboard')}>
             취소

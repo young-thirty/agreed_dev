@@ -54,18 +54,22 @@ export interface Integration {
 }
 
 /** 프로젝트 진행 상태. Draft에서 시작해 사람이 직접 Active로 올린다. */
-export type ProjectStatus = 'draft' | 'active' | 'completed';
+export type ProjectStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED';
 
+/** GET /api/projects 응답. 백엔드 public_project를 그대로 따라간다. */
 export interface Project {
-  id: string;
+  projectId: string;
   name: string;
   clientName: string;
-  /** 있으면 프로젝트 화면에서 Gmail 연동 결과 중 이 주소와 주고받은 메일만 걸러 보여준다. */
-  clientEmail?: string;
+  /** 있으면 이 주소와 주고받은 메일에서 요구사항을 뽑는다. */
+  clientEmail: string | null;
   description: string;
-  startDate: string; // ISO yyyy-mm-dd
-  endDate: string;
-  budget: number; // 원
+  startDate: string | null; // ISO yyyy-mm-dd
+  endDate: string | null;
+  contractPrice: number | null; // 원
+  unansweredRequestCount: number;
+  createdAt: string;
+  updatedAt: string;
   status: ProjectStatus;
 }
 
@@ -168,4 +172,14 @@ export interface Requirement {
 export interface AnalyzeResult {
   utterances: Utterance[];
   requirements: Requirement[];
+}
+
+/** 답변 전에 클라이언트에게 되물을 확인 질문. */
+export interface ClarificationResult {
+  questions: string[];
+}
+
+/** 고객에게 보낼 답변 초안. 보내지는 않는다. 사람이 읽고 고쳐서 직접 보낸다. */
+export interface ReplyDraftResult {
+  draft: string;
 }

@@ -1,21 +1,20 @@
 'use client';
 
 // 대시보드. 여러 프로젝트를 한눈에 보고, 지금 확인이 필요한 것부터 눈에 들어오게 정렬한다.
-// 진행 중(active)에서 확인 필요·범위 변경이 많은 프로젝트를 위로 올리고 살짝 강조한다.
+// Active 프로젝트 중 사람이 봐야 할 요구사항이 많은 것을 위로 올리고 살짝 강조한다.
 //
 // [프로토타입용] 어떤 정보를 넣을지 고르기 위해 생각나는 걸 다 붙여본 상태다.
 // 여기서 쓸 만한 것만 골라 정리한다. 그대로 유지할 화면이 아니다.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Search, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
+import { get } from '@/lib/api-client';
 import { Button } from '@/components/Button';
 import { Badge } from '@/components/Badge';
 import { ProjectStatusBadge } from '@/components/StatusBadges';
-import { CHANNEL_META } from '@/components/channelMeta';
-import { summaryOf, requestsOf, timelineOf } from '@/mocks';
-import type { Project, ProjectStatus } from '@/types';
+import type { Project, ProjectStatus, Requirement, RequirementStatus } from '@/types';
 
 // 데모 기준 오늘. mocks의 receivedAt이 이 날짜 근처라 상대 시각이 자연스럽게 나온다.
 const NOW = new Date('2026-08-25T18:00:00').getTime();
@@ -29,11 +28,31 @@ function relativeTime(iso: string): string {
   return `${Math.floor(hours / 24)}일 전`;
 }
 
-const won = (n: number) => '₩' + n.toLocaleString('ko-KR');
+const won = (n: number | null) => (n === null ? '금액 미정' : '₩' + n.toLocaleString('ko-KR'));
 
 // 종료일까지 남은 일수. 음수면 이미 지난 것이다.
 function daysUntil(iso: string): number {
   return Math.ceil((new Date(iso).getTime() - NOW) / 86_400_000);
+}
+
+// 사람이 아직 봐야 하는 것과, 계약에 영향이 갈 수 있는데 안 끝난 것.
+const NEEDS_ATTENTION: RequirementStatus[] = ['미확정', '문의'];
+const IN_PROGRESS: RequirementStatus[] = ['요청', '제안', '내부검토', '고객검토'];
+
+interface ProjectSummary {
+  total: number;
+  needsAttention: number;
+  inProgress: number;
+}
+
+const EMPTY_SUMMARY: ProjectSummary = { total: 0, needsAttention: 0, inProgress: 0 };
+
+function summarize(requirements: Requirement[]): ProjectSummary {
+  return {
+    total: requirements.length,
+    needsAttention: requirements.filter((r) => NEEDS_ATTENTION.includes(r.status)).length,
+    inProgress: requirements.filter((r) => IN_PROGRESS.includes(r.status)).length,
+  };
 }
 
 // 시작~종료일 중 지금이 얼마나 지났는지 0~100 사이로.
@@ -45,13 +64,13 @@ function progressPct(start: string, end: string): number {
 }
 
 // 상태별 정렬 우선순위. active를 가장 위로.
-const STATUS_ORDER: Record<ProjectStatus, number> = { active: 0, draft: 1, completed: 2 };
+const STATUS_ORDER: Record<ProjectStatus, number> = { ACTIVE: 0, DRAFT: 1, COMPLETED: 2 };
 
 const STATUS_TABS: { key: 'all' | ProjectStatus; label: string }[] = [
   { key: 'all', label: '전체' },
-  { key: 'active', label: 'Active' },
-  { key: 'draft', label: 'Draft' },
-  { key: 'completed', label: 'Completed' },
+  { key: 'ACTIVE', label: 'Active' },
+  { key: 'DRAFT', label: 'Draft' },
+  { key: 'COMPLETED', label: 'Completed' },
 ];
 
 type SortKey = 'urgency' | 'deadline' | 'budget' | 'name';
@@ -67,16 +86,34 @@ const inputClass =
   'rounded-md border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-ink-faint';
 
 export default function DashboardPage() {
-  const { projects } = useAppStore();
+  const { projects, projectsLoaded, projectsError } = useAppStore();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectStatus>('all');
   const [sortKey, setSortKey] = useState<SortKey>('urgency');
   const [view, setView] = useState<'list' | 'grid'>('list');
+  const [summaries, setSummaries] = useState<Record<string, ProjectSummary>>({});
 
+  // 프로젝트별 요구사항 집계. 카드의 숫자와 '확인 필요 순' 정렬이 이걸 쓴다.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(
+      projects.map(async (p) => {
+        const res = await get<Requirement[]>(`/api/projects/${p.projectId}/requirements`);
+        return [p.projectId, res.ok ? summarize(res.data) : EMPTY_SUMMARY] as const;
+      }),
+    ).then((pairs) => {
+      if (!cancelled) setSummaries(Object.fromEntries(pairs));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [projects]);
+
+  const summaryFor = (projectId: string) => summaries[projectId] ?? EMPTY_SUMMARY;
   const urgencyOf = (p: Project) => {
-    const s = summaryOf(p.id);
-    return s.needsClarification + s.scopeChanges;
+    const s = summaryFor(p.projectId);
+    return s.needsAttention + s.inProgress;
   };
 
   const filtered = useMemo(() => {
@@ -92,9 +129,9 @@ export default function DashboardPage() {
     const list = [...filtered];
     switch (sortKey) {
       case 'deadline':
-        return list.sort((a, b) => a.endDate.localeCompare(b.endDate));
+        return list.sort((a, b) => (a.endDate ?? '9999').localeCompare(b.endDate ?? '9999'));
       case 'budget':
-        return list.sort((a, b) => b.budget - a.budget);
+        return list.sort((a, b) => (b.contractPrice ?? 0) - (a.contractPrice ?? 0));
       case 'name':
         return list.sort((a, b) => a.name.localeCompare(b.name));
       case 'urgency':
@@ -108,25 +145,29 @@ export default function DashboardPage() {
   }, [filtered, sortKey]);
 
   // 상단 요약 바에 쓰는 전체 집계. (필터와 무관하게 항상 전체 기준)
-  const activeCount = projects.filter((p) => p.status === 'active').length;
+  const activeCount = projects.filter((p) => p.status === 'ACTIVE').length;
   const totalNeedsClarification = projects.reduce(
-    (sum, p) => sum + summaryOf(p.id).needsClarification,
+    (sum, p) => sum + summaryFor(p.projectId).needsAttention,
     0,
   );
-  const totalScopeChanges = projects.reduce((sum, p) => sum + summaryOf(p.id).scopeChanges, 0);
-  const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
+  const totalInProgress = projects.reduce(
+    (sum, p) => sum + summaryFor(p.projectId).inProgress,
+    0,
+  );
+  const totalBudget = projects.reduce((sum, p) => sum + (p.contractPrice ?? 0), 0);
   const dueSoonCount = projects.filter((p) => {
+    if (p.endDate === null) return false;
     const d = daysUntil(p.endDate);
-    return p.status === 'active' && d >= 0 && d <= 7;
+    return p.status === 'ACTIVE' && d >= 0 && d <= 7;
   }).length;
 
   // '전체' 탭에서만 완료 프로젝트를 따로 접어서 보여준다.
   const showCompletedSeparately = statusFilter === 'all';
   const mainList = showCompletedSeparately
-    ? sorted.filter((p) => p.status !== 'completed')
+    ? sorted.filter((p) => p.status !== 'COMPLETED')
     : sorted;
   const completedList = showCompletedSeparately
-    ? sorted.filter((p) => p.status === 'completed')
+    ? sorted.filter((p) => p.status === 'COMPLETED')
     : [];
 
   return (
@@ -161,8 +202,8 @@ export default function DashboardPage() {
           <p className="mt-1 text-lg font-semibold text-warn">{totalNeedsClarification}</p>
         </div>
         <div className="rounded-lg bg-surface px-4 py-3 shadow-card">
-          <p className="text-xs text-ink-faint">범위 변경</p>
-          <p className="mt-1 text-lg font-semibold text-danger">{totalScopeChanges}</p>
+          <p className="text-xs text-ink-faint">진행 중</p>
+          <p className="mt-1 text-lg font-semibold text-danger">{totalInProgress}</p>
         </div>
         <div className="rounded-lg bg-surface px-4 py-3 shadow-card">
           <p className="text-xs text-ink-faint">마감 임박(7일)</p>
@@ -233,7 +274,11 @@ export default function DashboardPage() {
       </div>
 
       {/* 프로젝트 목록 */}
-      {projects.length === 0 ? (
+      {projectsError !== null ? (
+        <p className="mt-8 text-sm text-ink-faint">{projectsError}</p>
+      ) : !projectsLoaded ? (
+        <p className="mt-8 text-sm text-ink-faint">프로젝트를 불러오는 중…</p>
+      ) : projects.length === 0 ? (
         <p className="mt-8 text-sm text-ink-faint">
           아직 프로젝트가 없습니다. 새 프로젝트를 만들어 시작하세요.
         </p>
@@ -241,7 +286,7 @@ export default function DashboardPage() {
         <p className="mt-8 text-sm text-ink-faint">조건에 맞는 프로젝트가 없습니다.</p>
       ) : (
         <>
-          <ProjectList projects={mainList} view={view} />
+          <ProjectList projects={mainList} view={view} summaryFor={summaryFor} />
 
           {showCompletedSeparately && completedList.length > 0 && (
             <details className="mt-4">
@@ -249,7 +294,7 @@ export default function DashboardPage() {
                 완료된 프로젝트 ({completedList.length})
               </summary>
               <div className="mt-3">
-                <ProjectList projects={completedList} view={view} />
+                <ProjectList projects={completedList} view={view} summaryFor={summaryFor} />
               </div>
             </details>
           )}
@@ -259,7 +304,15 @@ export default function DashboardPage() {
   );
 }
 
-function ProjectList({ projects, view }: { projects: Project[]; view: 'list' | 'grid' }) {
+function ProjectList({
+  projects,
+  view,
+  summaryFor,
+}: {
+  projects: Project[];
+  view: 'list' | 'grid';
+  summaryFor: (projectId: string) => ProjectSummary;
+}) {
   return (
     <ul
       className={
@@ -267,29 +320,25 @@ function ProjectList({ projects, view }: { projects: Project[]; view: 'list' | '
       }
     >
       {projects.map((p) => (
-        <ProjectCard key={p.id} project={p} />
+        <ProjectCard key={p.projectId} project={p} summary={summaryFor(p.projectId)} />
       ))}
     </ul>
   );
 }
 
-function ProjectCard({ project: p }: { project: Project }) {
-  const summary = summaryOf(p.id);
-  const isActive = p.status === 'active';
-  // 확인 필요·범위 변경이 있는 active 프로젝트만 좌측을 살짝 강조한다.
-  const highlight = isActive && (summary.needsClarification > 0 || summary.scopeChanges > 0);
+function ProjectCard({ project: p, summary }: { project: Project; summary: ProjectSummary }) {
+  const isActive = p.status === 'ACTIVE';
+  // 사람이 봐야 할 요구사항이 남은 active 프로젝트만 좌측을 살짝 강조한다.
+  const highlight = isActive && (summary.needsAttention > 0 || summary.inProgress > 0);
 
-  const channels = [...new Set(requestsOf(p.id).map((r) => r.channel))];
-  const latestEvent = timelineOf(p.id).at(-1);
-
-  const dLeft = daysUntil(p.endDate);
-  const dDayTone = dLeft < 0 ? 'danger' : dLeft <= 3 ? 'danger' : dLeft <= 7 ? 'warn' : 'neutral';
-  const dDayLabel = dLeft < 0 ? '기한 초과' : `D-${dLeft}`;
+  const dLeft = p.endDate === null ? null : daysUntil(p.endDate);
+  const dDayTone = dLeft === null || dLeft > 7 ? 'neutral' : dLeft <= 3 ? 'danger' : 'warn';
+  const dDayLabel = dLeft === null ? null : dLeft < 0 ? '기한 초과' : `D-${dLeft}`;
 
   return (
     <li>
       <Link
-        href={`/projects/${p.id}`}
+        href={`/projects/${p.projectId}`}
         className={`block rounded-lg bg-surface px-5 py-4 shadow-card transition-shadow hover:shadow-card-hover ${
           highlight ? 'border-l-2 border-l-accent' : ''
         }`}
@@ -303,16 +352,20 @@ function ProjectCard({ project: p }: { project: Project }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-ink">{p.name}</span>
               <ProjectStatusBadge status={p.status} />
-              {p.status !== 'completed' && <Badge tone={dDayTone}>{dDayLabel}</Badge>}
+              {p.status !== 'COMPLETED' && dDayLabel !== null && (
+                <Badge tone={dDayTone}>{dDayLabel}</Badge>
+              )}
             </div>
 
             <p className="mt-1 text-sm text-ink-muted">{p.clientName}</p>
-            <p className="mt-0.5 truncate text-sm text-ink-muted">{p.description}</p>
+            {p.description !== '' && (
+              <p className="mt-0.5 truncate text-sm text-ink-muted">{p.description}</p>
+            )}
             <p className="mt-1.5 text-xs text-ink-faint">
-              {p.startDate} ~ {p.endDate} · {won(p.budget)}
+              {p.startDate ?? '시작일 미정'} ~ {p.endDate ?? '종료일 미정'} · {won(p.contractPrice)}
             </p>
 
-            {p.status !== 'completed' && (
+            {p.status !== 'COMPLETED' && p.startDate !== null && p.endDate !== null && (
               <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-line">
                 <div
                   className="h-full rounded-full bg-accent"
@@ -321,39 +374,16 @@ function ProjectCard({ project: p }: { project: Project }) {
               </div>
             )}
 
-            {channels.length > 0 && (
-              <div className="mt-2.5 flex items-center gap-2">
-                {channels.map((c) => {
-                  const meta = CHANNEL_META[c];
-                  const Icon = meta.icon;
-                  return (
-                    <span key={c} title={meta.label} className="text-ink-faint">
-                      <Icon className="size-3.5" />
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-
-            {isActive && (
+            {isActive && summary.total > 0 && (
               <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-ink-muted">
-                <span>새 요청 {summary.newRequests}</span>
-                {summary.needsClarification > 0 && (
-                  <Badge tone="warn">확인 필요 {summary.needsClarification}</Badge>
+                <span>요구사항 {summary.total}건</span>
+                {summary.needsAttention > 0 && (
+                  <Badge tone="warn">확인 필요 {summary.needsAttention}</Badge>
                 )}
-                {summary.scopeChanges > 0 && (
-                  <Badge tone="danger">범위 변경 {summary.scopeChanges}</Badge>
-                )}
-                {summary.lastActivity && (
-                  <span className="text-ink-faint">{relativeTime(summary.lastActivity)}</span>
+                {summary.inProgress > 0 && (
+                  <Badge tone="danger">진행 중 {summary.inProgress}</Badge>
                 )}
               </div>
-            )}
-
-            {latestEvent && (
-              <p className="mt-2 truncate text-xs text-ink-faint">
-                최근 변화: {latestEvent.date} · {latestEvent.title}
-              </p>
             )}
           </div>
         </div>
