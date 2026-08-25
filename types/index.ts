@@ -132,3 +132,40 @@ export interface TimelineEvent {
   title: string;
   note?: string;
 }
+
+// ─────────────────────────────────────────────────────────────
+// 분석 API 응답 타입
+//
+// POST /api/analyze가 돌려주는 형태다.
+// 백엔드 core/domain.py의 Utterance·Evidence·RequirementState를 따라간다.
+// ─────────────────────────────────────────────────────────────
+
+/** 백엔드 분석이 쓰는 채널 이름. 위의 Channel과 값이 다르므로 섞어 쓰지 않는다. */
+export type AnalyzeChannel = '이메일' | '슬랙';
+
+/** 발화 한 줄. 근거 인용이 원문 어디였는지 되짚는 데 쓴다. */
+export interface Utterance {
+  index: number;
+  channel: AnalyzeChannel;
+  speaker: string;
+  text: string;
+}
+
+/** 요구사항의 근거 인용. 백엔드가 원문과 대조해 통과한 것만 내려준다. */
+export interface RequirementEvidence {
+  utteranceIndex: number;
+  quote: string;
+}
+
+/** 대화에서 뽑아낸 요구사항 카드. */
+export interface Requirement {
+  id: string;
+  title: string;
+  status: RequirementStatus;
+  evidence: RequirementEvidence[];
+}
+
+export interface AnalyzeResult {
+  utterances: Utterance[];
+  requirements: Requirement[];
+}
