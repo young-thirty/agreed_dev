@@ -42,7 +42,6 @@ export function Sidebar() {
         <Link href="/tickets" className="text-base font-semibold tracking-tight">
           Agreed
         </Link>
-        <p className="mt-0.5 text-xs text-ink-faint">고객 메시지 → 분석 → 답변</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3">
