@@ -10,8 +10,53 @@ import { Button } from './Button';
 import { ReconnectGmailModal } from './ReconnectGmailModal';
 import type { RawEmail } from '@/types/integrations';
 
+const MAX_MESSAGES = 100;
+
 /** 인용 겹 수를 들여쓰기로 보여준다. '>' 마커를 그대로 두면 읽히지 않는다. */
 const INDENT = ['', 'ml-3', 'ml-6', 'ml-9', 'ml-12'] as const;
+
+/** 목록에서는 짧게 읽히도록 올해 메일은 연도를 생략한다. */
+function formatDate(iso: string): string {
+  const sentAt = new Date(iso);
+  const thisYear = sentAt.getFullYear() === new Date().getFullYear();
+  return sentAt.toLocaleString('ko-KR', {
+    ...(thisYear ? {} : { year: 'numeric' }),
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+// 스켈레톤 각 줄의 폭. 실제 메일처럼 제목·본문 길이가 제각각이라 벽처럼 보이지 않는다.
+const SKELETON_ROWS = [
+  { subject: 'w-2/5', body: 'w-11/12', bodyTail: 'w-3/5' },
+  { subject: 'w-3/5', body: 'w-4/5', bodyTail: 'w-2/5' },
+  { subject: 'w-1/3', body: 'w-11/12', bodyTail: 'w-1/2' },
+];
+
+/** 로딩 중 자리표시자. 실제 메일 카드와 같은 골격이라 목록이 도착해도 화면이 튀지 않는다. */
+function EmailListSkeleton() {
+  return (
+    <ul
+      aria-hidden
+      className="flex flex-col divide-y divide-line rounded-lg border border-line bg-surface shadow-card"
+    >
+      {SKELETON_ROWS.map((row) => (
+        <li key={row.subject} className="flex flex-col gap-2.5 px-5 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className={`skeleton-bar h-3.5 ${row.subject}`} />
+            <div className="skeleton-bar h-3 w-20 shrink-0" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div className={`skeleton-bar h-2.5 ${row.body}`} />
+            <div className={`skeleton-bar h-2.5 ${row.bodyTail}`} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /**
  * 메일 본문. 인용된 이전 대화는 접어 둔다.
@@ -23,7 +68,7 @@ function EmailBody({ body }: { body: string }) {
 
   return (
     <>
-      <p className="whitespace-pre-wrap text-xs text-ink-muted">
+      <p className="whitespace-pre-wrap text-xs leading-relaxed text-ink-muted">
         {kept.length > 0 ? kept.join('\n') : '인용된 이전 대화만 있는 메일입니다.'}
       </p>
 
@@ -61,16 +106,6 @@ function EmailBody({ body }: { body: string }) {
   );
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
   const [emails, setEmails] = useState<RawEmail[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -100,38 +135,54 @@ export function ClientEmailThread({ clientEmail }: { clientEmail: string }) {
   }, [load]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-ink">고객 이메일</h2>
-          <p className="text-xs text-ink-faint">{clientEmail}</p>
+          <h2 className="text-base font-semibold tracking-tight text-ink">고객 이메일</h2>
+          <p className="mt-0.5 text-xs text-ink-faint">{clientEmail}</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => load(true)} disabled={loading}>
           {loading ? '확인 중…' : '새로고침'}
         </Button>
       </div>
 
-      {message !== null && (
-        <p className="rounded-md border border-line bg-paper px-3 py-2 text-xs text-ink-faint">{message}</p>
-      )}
-
-      {message === null && !loading && emails.length === 0 && (
-        <p className="rounded-md border border-line bg-paper px-3 py-2 text-xs text-ink-faint">
+      {message !== null ? (
+        <p className="rounded-lg border border-line bg-paper px-4 py-3 text-xs text-ink-faint">
+          {message}
+        </p>
+      ) : loading ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-ink-faint">메일을 불러오는 중이에요 · 최대 {MAX_MESSAGES}통</p>
+          <EmailListSkeleton />
+        </div>
+      ) : emails.length === 0 ? (
+        <p className="rounded-lg border border-line bg-paper px-4 py-8 text-center text-xs text-ink-faint">
           아직 이 주소와 주고받은 메일이 없습니다.
         </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-ink-faint">총 {emails.length}건</p>
+          <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
+            {emails.map((email) => (
+              <li key={email.id} className="flex flex-col gap-1.5 px-5 py-4">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span
+                    className={`truncate text-sm font-medium ${
+                      email.subject ? 'text-ink' : 'text-ink-faint'
+                    }`}
+                  >
+                    {email.subject || '(제목 없음)'}
+                  </span>
+                  <span className="shrink-0 text-xs text-ink-faint">
+                    {formatDate(email.sentAt)}
+                  </span>
+                </div>
+                <EmailBody body={email.body} />
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-
-      <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
-        {emails.map((email) => (
-          <li key={email.id} className="flex flex-col gap-1 px-4 py-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-sm font-medium text-ink">{email.subject || '(제목 없음)'}</span>
-              <span className="shrink-0 text-xs text-ink-faint">{formatDate(email.sentAt)}</span>
-            </div>
-            <EmailBody body={email.body} />
-          </li>
-        ))}
-      </ul>
 
       {reconnect && <ReconnectGmailModal onClose={() => setReconnect(false)} />}
     </div>
