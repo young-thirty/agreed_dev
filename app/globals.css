@@ -47,6 +47,31 @@
   --shadow-pop: 0 1px 3px rgba(17, 24, 39, 0.1);
 }
 
+/*
+ * 로딩 자리표시자 바. 옅은 회색 위로 밝은 띠가 한 방향으로 지나간다.
+ * 통째로 깜빡이는 pulse보다 조용하고, 무채색이라 파랑을 쓰지 않는다.
+ */
+.skeleton-bar {
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--color-line) 25%,
+    #f2f4f6 37%,
+    var(--color-line) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 50%;
+  }
+  to {
+    background-position: 0 50%;
+  }
+}
+
 /* 모션 최소화를 켠 사용자에게는 애니메이션을 걷어낸다 */
 @media (prefers-reduced-motion: reduce) {
   *,
