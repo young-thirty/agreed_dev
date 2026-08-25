@@ -28,8 +28,70 @@ export const REQUIREMENT_STATUS = [
 
 export type RequirementStatus = (typeof REQUIREMENT_STATUS)[number];
 
-// 나머지 도메인 타입은 기능 명세가 확정된 뒤에 여기에 추가한다. 지금은 자리만 표시한다.
-//
-// Contract     계약. 범위, 일정, 비용을 담는다
-// Requirement  대화에서 추출한 요구사항
-// Utterance    발화 단위. { index; speaker; text } 형태로 정규화한다
+/**
+ * 대화가 들어온 채널. 예선 시연은 텍스트 붙여넣기로 받지만, 값 자체는
+ * 나중에 실제로 연동할 두 채널(이메일·슬랙)을 그대로 쓴다. 카카오톡은
+ * API가 없어 채널로 두지 않는다.
+ */
+export const CHANNELS = ['이메일', '슬랙'] as const;
+export type Channel = (typeof CHANNELS)[number];
+
+/**
+ * 발화 단위. L0(발화 분할)의 산출물이다.
+ * index가 있어야 L2 근거 검증과 화면의 원문 하이라이트가 가능하다.
+ */
+export type Utterance = {
+  index: number;
+  channel: Channel;
+  speaker: string;
+  text: string;
+};
+
+/** 요구사항 카드가 원문 어디에 근거하는지. L2가 인용문을 원문과 대조한다. */
+export type Evidence = {
+  utteranceIndex: number;
+  quote: string;
+};
+
+/** 계약서·제안서 어디에 근거가 있는지. 없으면 '없음'이다. */
+export type Basis =
+  | { kind: '계약서'; clause: string }
+  | { kind: '제안서'; clause: string }
+  | { kind: '없음' };
+
+/**
+ * 금액·일정 결정. 사람만 채운다.
+ *
+ * `aiProposedDecision`은 AI가 대화 근거로 미리 채워보는 초안이고,
+ * `decision`은 사람이 확정한 값이다. 화면에 반영되는 건 `decision`뿐이다.
+ */
+export type Decision = {
+  amountDelta: number;
+  dueDate: string;
+  note?: string;
+};
+
+export type Requirement = {
+  id: string;
+  title: string;
+  status: RequirementStatus;
+  evidence: Evidence[];
+  basis: Basis;
+  aiProposedDecision: Decision | null;
+  decision: Decision | null;
+};
+
+export type Contract = {
+  version: number;
+  scope: string[];
+  dueDate: string;
+  amount: number;
+};
+
+/** 계약 버전 간 변경분. 우측 화면의 diff 표시가 이 값을 그대로 그린다. */
+export type ContractDiff = {
+  scopeAdded: string[];
+  scopeRemoved: string[];
+  dueDateChanged: { before: string; after: string } | null;
+  amountDelta: number;
+};
