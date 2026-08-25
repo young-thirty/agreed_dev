@@ -63,3 +63,24 @@ export async function get<T>(path: string): Promise<ApiResult<T>> {
 export async function patch<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   return request(path, { method: 'PATCH', body: JSON.stringify(body) });
 }
+
+/**
+ * 파일 원본을 그대로 받는다. get()과 갈라 둔 이유는 응답이 JSON이 아니라서다.
+ * 실패하면 서버가 { ok:false, error }를 JSON으로 돌려주므로 그걸 그대로 읽는다.
+ */
+export async function getBlob(path: string): Promise<ApiResult<Blob>> {
+  try {
+    const res = await fetch(apiUrl(path), { credentials: 'include' });
+    if (!res.ok) {
+      const payload: unknown = await res.json().catch(() => null);
+      const error =
+        isRecord(payload) && typeof payload.error === 'string'
+          ? payload.error
+          : '파일을 가져오지 못했습니다.';
+      return { ok: false, error };
+    }
+    return { ok: true, data: await res.blob() };
+  } catch {
+    return { ok: false, error: '서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.' };
+  }
+}

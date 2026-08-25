@@ -247,6 +247,9 @@ export interface ProjectMaterial {
   sourceChannel: MaterialSourceChannel | null;
   mimeType: string | null;
   sizeBytes: number | null;
+  /** 어느 대화에서 온 파일인지. */
+  conversationTitle: string | null;
+  senderDisplay: string | null;
   /** 원본을 내려받을 수 있는지. 큰 첨부는 목록에만 남고 원본은 없을 수 있다. */
   hasFile: boolean;
 }

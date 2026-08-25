@@ -123,7 +123,7 @@ export default function ProjectWorkspace() {
         </div>
       ) : tab === 'email' && project.clientEmail ? (
         <div className="p-8">
-          <ClientEmailThread clientEmail={project.clientEmail} />
+          <ClientEmailThread projectId={project.projectId} clientEmail={project.clientEmail} />
         </div>
       ) : project.status === 'DRAFT' ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">

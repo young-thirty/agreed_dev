@@ -8,12 +8,20 @@
 import { useEffect, useState } from 'react';
 import { FileText, GitBranch, Mail, MessageSquare, X } from 'lucide-react';
 import { apiUrl, get } from '@/lib/api-client';
+import { formatFileSize } from '@/lib/format';
+import { FileViewerModal } from './FileViewerModal';
 import type {
   MaterialClassificationStatus,
   MaterialDocumentType,
   MaterialSourceChannel,
   ProjectMaterial,
 } from '@/types';
+
+/** 서비스 안에서 바로 읽어 보여줄 수 있는 형식. 그 외에는 다운로드로 받는다. */
+const VIEWABLE_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
 
 const CHANNEL_ICON: Record<MaterialSourceChannel, typeof Mail> = {
   GMAIL: Mail,
@@ -36,13 +44,6 @@ const CLASSIFICATION_LABEL: Record<MaterialClassificationStatus, string> = {
   FAILED: '분류 실패',
 };
 
-function formatSize(bytes: number | null): string {
-  if (bytes === null) return '';
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
-
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('ko-KR', {
     month: 'long',
@@ -52,21 +53,39 @@ function formatDate(iso: string): string {
   });
 }
 
-function MaterialRow({ projectId, material }: { projectId: string; material: ProjectMaterial }) {
+function MaterialRow({
+  projectId,
+  material,
+  onView,
+}: {
+  projectId: string;
+  material: ProjectMaterial;
+  onView: (material: ProjectMaterial) => void;
+}) {
   const Icon = material.sourceChannel ? CHANNEL_ICON[material.sourceChannel] : FileText;
   const status = CLASSIFICATION_LABEL[material.classificationStatus];
+  const viewable = material.hasFile && VIEWABLE_MIME_TYPES.has(material.mimeType ?? '');
 
   const row = (
     <div className="flex items-start gap-3 px-4 py-3">
       <Icon className="mt-0.5 size-4 shrink-0 text-ink-faint" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink">{material.fileName}</p>
+
+        {(material.senderDisplay !== null || material.conversationTitle !== null) && (
+          <p className="mt-0.5 truncate text-xs text-ink-faint">
+            {material.senderDisplay}
+            {material.senderDisplay !== null && material.conversationTitle !== null && ' · '}
+            {material.conversationTitle}
+          </p>
+        )}
+
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-faint">
           <span>{formatDate(material.communicatedAt)}</span>
           {material.sizeBytes !== null && (
             <>
               <span>·</span>
-              <span>{formatSize(material.sizeBytes)}</span>
+              <span>{formatFileSize(material.sizeBytes)}</span>
             </>
           )}
           {material.documentType !== null && (
@@ -92,11 +111,22 @@ function MaterialRow({ projectId, material }: { projectId: string; material: Pro
     return <div className="opacity-60">{row}</div>;
   }
 
+  if (viewable) {
+    return (
+      <button
+        type="button"
+        onClick={() => onView(material)}
+        className="block w-full text-left transition-colors hover:bg-paper"
+      >
+        {row}
+      </button>
+    );
+  }
+
+  // 서비스 안에서 못 읽는 형식은 다운로드로 받는다.
   return (
     <a
       href={apiUrl(`/api/projects/${projectId}/materials/${material.materialId}/file`)}
-      target="_blank"
-      rel="noreferrer"
       className="block transition-colors hover:bg-paper"
     >
       {row}
@@ -113,6 +143,7 @@ export function MaterialsDrawer({
 }) {
   const [materials, setMaterials] = useState<ProjectMaterial[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<ProjectMaterial | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,12 +199,26 @@ export function MaterialsDrawer({
           ) : (
             <div className="divide-y divide-line">
               {materials.map((material) => (
-                <MaterialRow key={material.materialId} projectId={projectId} material={material} />
+                <MaterialRow
+                  key={material.materialId}
+                  projectId={projectId}
+                  material={material}
+                  onView={setViewing}
+                />
               ))}
             </div>
           )}
         </div>
       </aside>
+
+      {viewing && (
+        <FileViewerModal
+          fileName={viewing.fileName}
+          mimeType={viewing.mimeType ?? ''}
+          fetchPath={`/api/projects/${projectId}/materials/${viewing.materialId}/file`}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   );
 }

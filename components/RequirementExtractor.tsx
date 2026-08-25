@@ -55,7 +55,9 @@ export function RequirementExtractor({
     setMessage(null);
 
     // '다시 분석'은 메일을 새로 받아온다. 첫 분석은 이미 받아둔 게 있으면 그걸 쓴다.
-    const inbox = await loadClientEmails(clientEmail, { refresh: analyzedCount !== null });
+    const inbox = await loadClientEmails(project.projectId, clientEmail, {
+      refresh: analyzedCount !== null,
+    });
     if (!inbox.ok) {
       setLoading(false);
       setMessage(inbox.error);
