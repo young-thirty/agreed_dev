@@ -2,7 +2,6 @@
 
 import { useResetAll } from '@/hooks/usePersistedState';
 import { EmailPanel } from '@/components/EmailPanel';
-import { EmailComposer } from '@/components/EmailComposer';
 import { SlackPanel } from '@/components/SlackPanel';
 
 export default function Home() {
@@ -23,12 +22,11 @@ export default function Home() {
           onClick={resetAll}
           className="shrink-0 rounded-md border border-line px-4 py-2 text-sm hover:bg-surface"
         >
-          처음부터 다시
+          화면 선택 초기화
         </button>
       </header>
 
       <EmailPanel />
-      <EmailComposer />
       <SlackPanel />
 
       <section className="rounded-lg border border-line bg-surface px-8 py-20 text-center text-ink-muted">

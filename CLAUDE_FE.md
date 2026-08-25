@@ -1,6 +1,6 @@
 # CLAUDE_FE.md
 
-> 프론트엔드 작업 규약이다. `app/page.tsx`, `app/layout.tsx`, `components/`, `app/globals.css`를 수정할 때 읽는다.
+> 프론트엔드 작업 규약이다. `app/`, `components/`, `hooks/`, `lib/api-client.ts`, `types/`를 수정할 때 읽는다.
 > `CLAUDE.md`의 공통 규약을 먼저 읽고 이 문서를 읽는다.
 
 ---
@@ -12,6 +12,9 @@ app/page.tsx          메인 화면. 상태를 여기서 들고 내려준다
 app/layout.tsx        전역 레이아웃
 app/globals.css       디자인 토큰
 components/           재사용 컴포넌트
+hooks/                화면 편의 상태 훅
+lib/api-client.ts     FastAPI 호출 래퍼
+types/                백엔드 공개 응답 타입
 ```
 
 `app/api/`, `core/`, `infra/`는 건드리지 않는다. 필요한 변경이 있으면 백엔드에 요청한다.
@@ -24,25 +27,24 @@ components/           재사용 컴포넌트
 
 Redux, Zustand, Recoil을 도입하지 않는다. `app/page.tsx`가 상태를 소유하고 props로 내려준다. 화면이 하나뿐이라 이걸로 충분하다.
 
-### localStorage에 저장한다
+### 서버 데이터를 localStorage에 저장하지 않는다
 
-DB가 없으므로 브라우저에 저장한다. 실수로 새로고침해도 상태가 남아야 한다.
-
-```ts
-const [contract, setContract] = usePersistedState<Contract | null>('contract', null);
-```
-
-`usePersistedState`는 `useState`와 사용법이 같고 저장까지 처리한다.
+사용자·계약·문서·Gmail·Slack 대화·AI 결과는 새로고침할 때 FastAPI에서 다시 받는다.
+localStorage는 선택한 탭이나 Slack 워크스페이스·채널처럼 유출돼도 무해한 UI 설정에만 쓴다.
+로그인 세션과 provider token은 JavaScript에서 읽거나 저장하지 않는다.
 
 ### 초기화 버튼은 필수다
 
-**"처음부터 다시" 버튼을 화면에 둔다.** 시연을 반복해야 하므로 언제든 즉시 초기 상태로 돌아갈 수 있어야 한다. 개발자 도구를 열어서 지우는 방식은 안 된다.
+화면 편의값 초기화와 서버 데이터 초기화는 구분한다. 서버 데이터를 지우는 기능이 필요하면 백엔드 API로 별도 구현한다.
 
 ---
 
 ## 3. 서버 호출
 
 `fetch`를 직접 부르지 않는다. `lib/api-client.ts`의 래퍼를 쓴다.
+
+래퍼는 `NEXT_PUBLIC_API_BASE_URL`을 기준으로 호출하고 모든 요청에
+`credentials: 'include'`를 넣어 HttpOnly 세션 쿠키를 보낸다.
 
 ```ts
 const res = await post<Requirement[]>('/api/...', payload);
@@ -146,8 +148,8 @@ CSS 모듈, styled-components, emotion을 쓰지 않는다.
 
 작업을 마치기 전에 확인한다.
 
-- [ ] 새로고침해도 상태가 남는가
-- [ ] "처음부터 다시" 버튼이 동작하는가
+- [ ] 새로고침 후 서버 데이터를 다시 불러오는가
+- [ ] 서버 데이터나 인증·연동 토큰을 localStorage에 저장하지 않았는가
 - [ ] 서버 응답이 실패해도 화면이 유지되는가
 - [ ] 빈 배열, `null` 상태에서 깨지지 않는가
 - [ ] 노트북 해상도에서 잘리지 않는가

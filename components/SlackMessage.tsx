@@ -1,6 +1,5 @@
-import type { SlackMessage } from '@/core/slack/types';
-
-// 채널 목록과 스레드 답글이 같은 모양으로 메시지를 그리므로 컴포넌트를 공유한다.
+import { apiUrl } from '@/lib/api-client';
+import type { SlackMessage } from '@/types/integrations';
 
 export function formatSlackTime(iso: string): string {
   return new Date(iso).toLocaleString('ko-KR', {
@@ -11,7 +10,14 @@ export function formatSlackTime(iso: string): string {
   });
 }
 
-export function SlackMessageItem({ message }: { message: SlackMessage }) {
+type Props = { message: SlackMessage; teamId: string };
+
+function fileUrl(teamId: string, fileId: string): string {
+  const query = new URLSearchParams({ teamId, fileId });
+  return apiUrl(`/api/slack/file?${query}`);
+}
+
+export function SlackMessageItem({ message, teamId }: Props) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline gap-2">
@@ -23,27 +29,28 @@ export function SlackMessageItem({ message }: { message: SlackMessage }) {
 
       {message.files.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {message.files.map((file) =>
-            file.isImage ? (
-              // eslint-disable-next-line @next/next/no-img-element -- 우리 서버가 인증해서 흘려주는 프록시 주소라 next/image 최적화 대상이 아니다
+          {message.files.map((file) => {
+            const url = fileUrl(teamId, file.fileId);
+            return file.isImage ? (
+              // eslint-disable-next-line @next/next/no-img-element -- 인증된 FastAPI 파일 프록시다
               <img
-                key={file.id}
-                src={file.url}
+                key={file.fileId}
+                src={url}
                 alt={file.name}
                 className="max-h-48 rounded-md border border-line object-contain"
               />
             ) : (
               <a
-                key={file.id}
-                href={file.url}
+                key={file.fileId}
+                href={url}
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-md border border-line px-2 py-1 text-xs hover:bg-paper"
               >
                 📎 {file.name}
               </a>
-            ),
-          )}
+            );
+          })}
         </div>
       )}
     </div>

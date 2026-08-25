@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } 
 const PREFIX = 'agreed:';
 
 /**
- * useState와 사용법이 같고 localStorage에 자동으로 저장한다.
+ * 선택 탭·워크스페이스처럼 유출돼도 무해한 화면 편의값만 localStorage에 저장한다.
+ * 사용자·계약·대화·AI 결과·인증/연동 토큰에는 사용하지 않는다.
  *
  * 서버에는 localStorage가 없으므로 첫 렌더는 항상 initial 값으로 그린다.
  * 저장값은 마운트된 뒤에 불러와 덮어쓴다. 하이드레이션 불일치를 피하기 위한 순서다.
@@ -39,8 +40,7 @@ export function usePersistedState<T>(
 }
 
 /**
- * 저장된 상태를 모두 지우고 새로고침한다.
- * 시연을 반복해야 하므로 개발자 도구를 열지 않고 화면에서 초기화할 수 있어야 한다.
+ * 저장된 화면 선택값만 지우고 새로고침한다. 서버 데이터는 건드리지 않는다.
  */
 export function useResetAll() {
   return useCallback(() => {

@@ -1,17 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { post } from '@/lib/api-client';
-import type { CompanyGroup } from '@/core/email/grouping';
-
-// core/email/grouping.ts의 타입을 그대로 쓴다. 아직 types/index.ts로 옮길지 정하지 않았다.
-
-const POLL_INTERVAL_MS = 20_000;
+import { apiUrl, get, post } from '@/lib/api-client';
+import type { CompanyGroup, EmailConnectionStatus } from '@/types/integrations';
 
 const CONNECT_NOTICE: Record<string, string> = {
   connected: 'Gmail이 연결되었습니다.',
   denied: 'Gmail 연결이 취소되었습니다.',
   failed: 'Gmail 연결에 실패했습니다. 다시 시도해 주세요.',
+  login_required: 'Agreed에 로그인한 뒤 Gmail을 연결해 주세요.',
 };
 
 function formatDate(iso: string): string {
@@ -35,37 +32,44 @@ export function EmailPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const loadMessages = useCallback(async () => {
     setLoading(true);
-    const res = await post<CompanyGroup[]>('/api/email/messages', {});
+    const res = await post<CompanyGroup[]>('/api/email/messages', { maxMessages: 20 });
     setLoading(false);
 
     if (!res.ok) {
-      setConnected(false);
       setMessage(res.error);
       return;
     }
-    setConnected(true);
     setMessage(null);
     setGroups(res.data);
   }, []);
 
-  // 콜백에서 돌아온 /?gmail=... 을 한 번 읽고 주소에서 지운다. 새로고침해도 배너가 다시 뜨면 안 되기 때문이다.
+  const initialize = useCallback(async () => {
+    const status = await get<EmailConnectionStatus>('/api/email/status');
+    if (!status.ok) {
+      setConnected(false);
+      setMessage(status.error);
+      return;
+    }
+
+    setConnected(status.data.connected);
+    if (!status.data.connected) {
+      setGroups([]);
+      setMessage(null);
+      return;
+    }
+    await loadMessages();
+  }, [loadMessages]);
+
   useEffect(() => {
     const param = new URLSearchParams(window.location.search).get('gmail');
     if (param !== null) {
       setNotice(CONNECT_NOTICE[param] ?? null);
       window.history.replaceState(null, '', window.location.pathname);
     }
-    load();
-  }, [load]);
-
-  // 연결된 뒤에만 폴링한다. 연결 안 된 상태에서 계속 두드릴 이유가 없다.
-  useEffect(() => {
-    if (!connected) return;
-    const timer = setInterval(load, POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [connected, load]);
+    initialize();
+  }, [initialize]);
 
   return (
     <section className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-6">
@@ -73,7 +77,7 @@ export function EmailPanel() {
         <div>
           <h2 className="text-lg font-semibold">이메일</h2>
           <p className="text-sm text-ink-muted">
-            {connected ? '20초마다 새 메일을 확인합니다.' : 'Gmail을 연결하면 상대방별 대화 내역을 가져옵니다.'}
+            {connected ? '필요할 때 새로고침해 최근 메일을 확인합니다.' : 'Gmail을 연결하면 상대방별 대화 내역을 가져옵니다.'}
           </p>
         </div>
 
@@ -82,14 +86,14 @@ export function EmailPanel() {
           {connected && (
             <button
               type="button"
-              onClick={load}
+              onClick={loadMessages}
               className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-paper"
             >
               새로고침
             </button>
           )}
           <a
-            href="/api/email/connect"
+            href={apiUrl('/api/email/connect')}
             className="rounded-md bg-accent px-3 py-1.5 text-sm text-white hover:opacity-90"
           >
             {connected ? 'Gmail 다시 연결' : 'Gmail 연결'}
@@ -105,7 +109,7 @@ export function EmailPanel() {
         <p className="rounded-md border border-line bg-paper px-4 py-2 text-sm text-ink-muted">{message}</p>
       )}
 
-      {connected && groups.length === 0 && !loading && (
+      {connected && groups.length === 0 && !loading && message === null && (
         <p className="text-sm text-ink-muted">최근 메일이 없습니다.</p>
       )}
 

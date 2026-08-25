@@ -11,7 +11,7 @@
 
 | 작업 영역 | 함께 읽을 문서 |
 |---|---|
-| `app/page.tsx`, `app/layout.tsx`, `components/`, `app/globals.css` 수정 | **`CLAUDE_FE.md`** |
+| `app/`, `components/`, `hooks/`, `lib/api-client.ts`, `types/` 수정 | **`CLAUDE_FE.md`** |
 | 서버 로직 | 이 저장소가 아니다. `young-thirty/agreed_be`로 간다 |
 
 AI 에이전트에게 작업을 시킬 때는 다음 문장을 프롬프트에 포함한다.
@@ -20,9 +20,11 @@ AI 에이전트에게 작업을 시킬 때는 다음 문장을 프롬프트에 �
 CLAUDE.md와 CLAUDE_FE.md를 먼저 읽고 규약을 지켜서 작업해.
 ```
 
-> **`CLAUDE_BE.md`와 `ARCHITECTURE.md`는 이제 이 저장소의 규약이 아니다.**
-> 백엔드가 별도 저장소로 분리되면서 `agreed_be`의 `CLAUDE.md`·`ARCHITECTURE.md`로
-> 옮겨졌다. 기획 의도와 시연 시나리오는 `agreed_be/HANDOFF.md`에 있다.
+> **백엔드 구현 규약은 이 저장소에 두지 않는다.**
+> `CLAUDE_BE.md`는 백엔드 저장소를 안내하는 보관용 문서이고,
+> `ARCHITECTURE.md`는 프론트엔드와 FastAPI 사이의 경계만 설명한다.
+> 백엔드 규약은 `agreed_be/CLAUDE.md`·`agreed_be/ARCHITECTURE.md`,
+> 기획 의도와 시연 시나리오는 `agreed_be/HANDOFF.md`에 있다.
 
 ---
 
@@ -43,9 +45,9 @@ CLAUDE.md와 CLAUDE_FE.md를 먼저 읽고 규약을 지켜서 작업해.
 ## 2. 절대 규칙
 
 1. **이 저장소는 프론트엔드 전용이다.** 백엔드 API는 별도 저장소(`young-thirty/agreed_be`, FastAPI)에 있다.
-2. **화면 상태는 localStorage로 관리한다.** 영속 데이터는 백엔드의 MongoDB가 들고 있고, 화면은 서버에서 받아온 것을 localStorage에 캐시한다.
+2. **서버 데이터의 원천은 MongoDB다.** 사용자·계약·문서·대화·AI 결과를 localStorage에 저장하거나 캐시하지 않는다.
 3. **테스트 코드를 작성하지 않는다.** 검증은 실행으로 한다.
-4. **인증·로그인이 없다.** 사용자 개념 자체가 없다.
+4. **이메일·비밀번호 로그인이 있다.** Google·Slack 연결은 로그인과 별개이며 HttpOnly 세션 쿠키를 쓴다.
 5. **`types/index.ts`는 백엔드의 `core/domain.py`를 따라간다.** 서버 응답 필드 이름이 원천이므로, 여기서 임의로 바꾸면 화면이 조용히 깨진다. 바꿔야 하면 먼저 백엔드에 알린다.
 6. **기능 명세가 확정된 범위 안에서 도메인 기능을 구현한다.** 확정되지 않은 범위는 임의로 확장하지 않는다.
 
@@ -114,8 +116,8 @@ AI 에이전트가 흔히 저지르는 실수를 줄이기 위한 규칙이다. 
 │
 ├─ components/              UI 컴포넌트
 ├─ hooks/                   usePersistedState 등
-├─ types/index.ts           백엔드 응답 타입 (core/domain.py를 따라간다)
-└─ lib/                     api-client 등 공용 유틸
+├─ types/                   백엔드 공개 응답 타입
+└─ lib/api-client.ts        FastAPI 호출 래퍼
 ```
 
 `app/api/`, `core/`, `infra/`는 백엔드 저장소로 옮겨졌다. 이 저장소에 서버 로직을 두지 않는다.
@@ -139,6 +141,10 @@ POST /api/contract/apply                       합의된 요구사항 반영 (+ 
 GET  /api/requirements                         요구사항 목록
 GET  /api/requirements/{id}/allowed            고를 수 있는 상태
 POST /api/requirements/{id}/transition         상태 변경 (+ 금액·납기 확정)
+GET  /api/email/connect                        Gmail OAuth 시작
+POST /api/email/messages                       Gmail 조회
+GET  /api/slack/connect                        Slack OAuth 시작
+POST /api/slack/workspaces|channels|messages   Slack 조회
 ```
 
 전체 명세는 백엔드를 띄운 뒤 `http://localhost:8000/docs`에서 볼 수 있다.
@@ -152,16 +158,15 @@ POST /api/requirements/{id}/transition         상태 변경 (+ 금액·납기 �
 | 프레임워크 | Next.js (App Router) |
 | 언어 | TypeScript |
 | 스타일 | Tailwind CSS |
-| 화면 상태 | React 상태 + localStorage |
+| 화면 상태 | React 상태, 무해한 UI 설정만 localStorage |
 | 서버 | 별도 저장소의 FastAPI API (`http://localhost:8000`) |
-| 배포 | Vercel |
+| 배포 | AWS 기준 |
 
 AI 호출과 DB는 백엔드가 담당한다. 이 저장소에는 API 키가 존재하지 않는다.
 
 ### 인프라 규칙
 
-- 프론트 배포는 Vercel이다. 백엔드는 별도로 뜬다.
-- **API 키를 이 저장소에 두지 않는다.** AI 호출은 전부 백엔드를 거친다.
+- **AI·Google·Slack secret을 이 저장소에 두지 않는다.** 외부 호출은 전부 백엔드를 거친다.
 - 환경변수에 `NEXT_PUBLIC_` 접두사를 붙이면 브라우저에 노출된다. 백엔드 주소처럼 노출돼도 되는 값에만 쓴다.
 - 프론트를 배포하고 백엔드를 로컬에 두면 https → http라 브라우저가 차단한다. **둘 다 로컬이거나 둘 다 배포다.**
 - 새 라이브러리를 추가하기 전에 팀에 묻는다.
@@ -229,7 +234,7 @@ docs: 규약 문서 추가
 시간과 복잡도를 낭비하는 목록이다. 요청받아도 되묻는다.
 
 - 테스트 코드
-- 로그인, 인증, 사용자 관리
+- Next.js API route에서 로그인·AI·Gmail·Slack 서버 로직 구현
 - 프론트에서의 직접 AI 호출 (백엔드를 거친다)
 - 전역 상태 라이브러리 (Redux, Zustand, Recoil)
 - 모바일 반응형

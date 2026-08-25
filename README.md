@@ -1,24 +1,35 @@
-# Agreed
+# Agreed 프론트엔드
 
-계약 이후 고객 대화에서 새 요구사항을 찾아, 지금 합의된 계약 상태를 최신으로 유지합니다.
+Gmail·Slack 대화와 계약 변경 내용을 보여주는 Next.js 화면입니다. 로그인, MongoDB,
+AI, Gmail·Slack OAuth/API는 별도 FastAPI 저장소 `young-thirty/agreed_be`가
+담당합니다.
 
-## 시작
+## 로컬 실행
 
 ```bash
 pnpm install
-cp .env.example .env.local   # ANTHROPIC_API_KEY 채우기
+cp .env.example .env.local
 pnpm dev
 ```
 
-http://localhost:3000
+`.env.local`에는 공개 가능한 백엔드 주소만 둡니다.
 
-## 배포
+```dotenv
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
 
-Vercel에 레포를 연결하면 끝입니다. 환경변수 `ANTHROPIC_API_KEY`만 등록하세요.
-**개발 시작 직후 빈 상태로 한 번 배포해 두세요.** 마지막에 하면 반드시 터집니다.
+- 프론트: http://localhost:3000
+- FastAPI: http://localhost:8000
+- API 문서: http://localhost:8000/docs
 
-배포 확인: `/api/health`
+Gmail·Slack 연결 버튼은 FastAPI OAuth 시작 주소로 이동합니다. provider secret과
+token은 프론트에 두지 않으며, 서버 데이터는 localStorage에 저장하지 않습니다.
 
-## 팀 규약
+## 검증
 
-작업 전에 [CLAUDE.md](./CLAUDE.md)를 읽으세요.
+```bash
+pnpm typecheck
+pnpm build
+```
+
+작업 전에 [CLAUDE.md](./CLAUDE.md)와 [CLAUDE_FE.md](./CLAUDE_FE.md)를 읽으세요.
