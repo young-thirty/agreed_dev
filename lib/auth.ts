@@ -41,3 +41,11 @@ export async function login(input: { email: string; password: string }): Promise
     password: input.password,
   });
 }
+
+/** 로그아웃. 서버가 세션 쿠키를 지운다. 실패해도 화면은 로그인으로 보낸다. */
+export async function logout(): Promise<void> {
+  await post('/api/auth/logout', {});
+}
+
+/** 로그아웃한 뒤 들어가는 화면. */
+export const LOGIN_PATH = '/login';

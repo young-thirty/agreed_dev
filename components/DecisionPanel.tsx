@@ -6,10 +6,12 @@
 // 이 요구를 티켓에 반영할지, 별도 티켓으로 분리할지, 반영하지 않을지다.
 // 요구사항 확정과 상태 변경은 사람만 한다.
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { Ban, Check, Link2, Plus, Undo2 } from 'lucide-react';
+import { Ban, Check, Link2, ListChecks, LoaderCircle, Plus, Undo2 } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { TicketStatusBadge } from '@/components/StatusBadges';
+import { getChecklist } from '@/lib/api';
 import type { Analysis, Handling, InboundDecision, Ticket } from '@/types';
 
 const inputClass =
@@ -21,6 +23,8 @@ export function DecisionPanel({
   relatedTicket,
   currentTicket,
   splitTicket,
+  selectedItems,
+  onToggleItem,
   onChoose,
   onClear,
   onValueChange,
@@ -33,11 +37,29 @@ export function DecisionPanel({
   currentTicket: Ticket;
   /** 분리를 골라 새로 만들어진 티켓. */
   splitTicket: Ticket | null;
+  /** 답변에 반영하려고 고른 확인 항목. */
+  selectedItems: string[];
+  onToggleItem: (text: string) => void;
   onChoose: (handling: Handling) => void;
   onClear: () => void;
   onValueChange: (fieldId: string, value: string) => void;
 }) {
   const chosen = decision.handling;
+  const [items, setItems] = useState<string[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function loadChecklist() {
+    setLoading(true);
+    setMessage(null);
+    const res = await getChecklist(currentTicket.ticketId);
+    setLoading(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setItems(res.data.items);
+  }
 
   const resultLabel = (handling: Handling): string => {
     if (handling === 'ignore') return '티켓 내용은 그대로 두고 답변만 보냅니다';
@@ -106,6 +128,50 @@ export function DecisionPanel({
           </div>
         )}
       </div>
+
+      {chosen !== null && decision.sentAt === null && (
+        <div className="rounded-lg bg-surface p-5 shadow-card">
+          <p className="text-sm font-medium text-ink">답변 전에 확인할 것</p>
+          <p className="mt-0.5 text-xs text-ink-faint">
+            AI가 짚어 준 것 중 고른 항목만 답변 초안에 반영됩니다.
+          </p>
+
+          {items === null ? (
+            <Button variant="outline" onClick={loadChecklist} disabled={loading} className="mt-3">
+              {loading ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <ListChecks className="size-4" />
+              )}
+              {loading ? '확인 항목을 만드는 중…' : '확인 항목 만들기'}
+            </Button>
+          ) : items.length === 0 ? (
+            <p className="mt-3 text-sm text-ink-faint">따로 확인할 항목이 없습니다.</p>
+          ) : (
+            <ul className="mt-3 flex flex-col gap-2.5">
+              {items.map((item) => (
+                <li key={item}>
+                  <label className="flex items-start gap-2.5 text-sm leading-snug text-ink">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.includes(item)}
+                      onChange={() => onToggleItem(item)}
+                      className="mt-0.5 size-4 shrink-0 accent-accent"
+                    />
+                    <span>{item}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {message !== null && (
+            <p className="mt-3 rounded-md border border-line bg-paper px-3 py-2 text-xs text-ink-faint">
+              {message}
+            </p>
+          )}
+        </div>
+      )}
 
       {chosen !== null && analysis.decisionFields.length > 0 && (
         <div className="rounded-lg bg-surface p-5 shadow-card">

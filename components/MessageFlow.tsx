@@ -39,6 +39,8 @@ export function MessageFlow({
   onChanged: () => void;
 }) {
   const [message, setMessage] = useState<string | null>(null);
+  // 답변에 반영할 확인 항목. 서버 decision에는 자리가 없어 이 화면에서만 들고 있다.
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const { analysis } = inbound;
   const { icon: ChannelIcon, label: channelLabel } = CHANNEL_META[inbound.channel];
 
@@ -135,6 +137,12 @@ export function MessageFlow({
               relatedTicket={null}
               currentTicket={ticket}
               splitTicket={null}
+              selectedItems={selectedItems}
+              onToggleItem={(text) =>
+                setSelectedItems((prev) =>
+                  prev.includes(text) ? prev.filter((item) => item !== text) : [...prev, text],
+                )
+              }
               onChoose={choose}
               onClear={() => choose(null)}
               onValueChange={changeValue}
@@ -161,7 +169,7 @@ export function MessageFlow({
               sourceMessageId={inbound.inboundId}
               fields={analysis.decisionFields}
               values={decision.values}
-              selectedItems={[]}
+              selectedItems={selectedItems}
               savedReplyText={decision.replyText}
               sentAt={decision.sentAt}
               onSent={onChanged}
