@@ -18,6 +18,7 @@
      groups:read
      groups:history
      users:read
+     files:read
      ```
 3. 좌측 메뉴 **Basic Information → App Credentials**에서 **Client ID**, **Client Secret** 확인
 4. `.env.local`에 채운다
@@ -28,7 +29,20 @@ SLACK_CLIENT_SECRET=발급받은 값
 SLACK_REDIRECT_URI=http://localhost:3000/api/slack/callback
 ```
 
-새 npm 의존성은 없다. `@slack/web-api` SDK 대신 `fetch`로 REST를 직접 호출한다. 파일·이미지에 별도 스코프는 필요 없다 — `channels:history`/`groups:history`로 받는 메시지 안에 파일 메타데이터가 이미 포함된다.
+새 npm 의존성은 없다. `@slack/web-api` SDK 대신 `fetch`로 REST를 직접 호출한다.
+
+**`files:read`가 별도로 필요하다.** `channels:history`/`groups:history`는 메시지 안 파일의 **메타데이터**(이름, 타입, `url_private` 주소)까지만 준다. 그 주소로 실제 파일 **내용**을 받으려면 `files:read`가 따로 있어야 한다.
+
+### 스코프를 나중에 추가했다면
+
+Bot Token Scopes를 바꿔도 **이미 연결된 워크스페이스의 봇 토큰에는 자동으로 반영되지 않는다.** 스코프를 추가한 뒤에는:
+
+1. Slack App 설정에서 스코프 저장(자동 반영되지 않으면 페이지 새로고침으로 확인)
+2. 화면에서 **워크스페이스 연결**을 다시 클릭
+3. Slack이 "다음 권한이 추가되었습니다" 같은 업데이트 승인 화면을 보여준다 → **허용**
+4. 이후 응답으로 새 스코프가 반영된 봇 토큰이 오고, `addWorkspace`가 같은 `teamId`를 덮어써서 갱신한다 (`infra/slack/api.ts`의 `SlackWorkspace` 저장 로직 — teamId가 같으면 기존 항목을 교체한다)
+
+재연결 없이는 이전에 승인받은 스코프 그대로 남아 있어서, 코드만 고치고 브라우저에서 다시 연결하지 않으면 여전히 파일을 못 받아온다.
 
 **비공개 채널을 시연에 쓰려면** 슬랙에서 그 채널에 `/invite @봇이름`으로 봇을 미리 초대해둔다 — 코드로는 봇을 비공개 채널에 넣을 수 없다.
 
@@ -118,6 +132,7 @@ const SCOPES = [
   'groups:read',
   'groups:history',
   'users:read',
+  'files:read',
 ].join(',');
 
 export type SlackWorkspace = { teamId: string; teamName: string; botToken: string };

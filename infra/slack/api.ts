@@ -14,6 +14,7 @@ const SCOPES = [
   'groups:read', // 봇이 이미 속한 비공개 채널 목록
   'groups:history', // 비공개 채널 메시지
   'users:read', // user id → 실제 이름
+  'files:read', // 메시지에 첨부된 파일의 실제 내용(url_private) 조회. 메시지 안 파일 메타데이터만으론 부족하다
 ].join(',');
 
 export type SlackWorkspace = { teamId: string; teamName: string; botToken: string };
