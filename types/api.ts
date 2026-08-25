@@ -11,4 +11,14 @@ export const TICKET_STATUS_PARAM = {
 } as const;
 
 /** 답변 초안 말투. 백엔드 ReplyDraftRequest.tone과 값이 같아야 한다. */
-export type ReplyTone = 'friendly' | 'professional' | 'concise' | 'firm';
+export const REPLY_TONES = ['friendly', 'professional', 'concise', 'firm'] as const;
+export type ReplyTone = (typeof REPLY_TONES)[number];
+
+/** POST /api/auth/signup·login, GET /api/auth/me 가 data.user로 내려주는 값. */
+export interface UserSummary {
+  userId: string;
+  name: string;
+  email: string;
+  phoneNumber: string | null;
+  createdAt: string;
+}
