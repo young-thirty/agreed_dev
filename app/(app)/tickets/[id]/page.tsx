@@ -136,6 +136,7 @@ export default function TicketPage() {
             inbound={pending}
             project={project}
             ticket={ticket}
+            materials={detail.materials}
             decision={decision}
             analyzed={workStage !== 'to_analyze'}
             onChanged={refresh}

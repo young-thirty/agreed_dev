@@ -1,15 +1,15 @@
 'use client';
 
-// 프로젝트 자료 아카이브. 오른쪽에서 드로어로 열린다.
-// 메일 첨부·Slack 파일처럼 대화 중 오간 파일을 채널·시각과 함께 한 곳에 모은다.
-// 요구사항 카드가 '뭐라고 말했는가'라면, 이 자료들은 '무엇을 주고받았는가'다 —
-// 같은 요구사항을 파악하는 데 같이 쓰는 근거다.
+// 프로젝트 자료 한 줄과 그 목록. 프로젝트의 파일 탭과 티켓의 첨부가 같이 쓴다.
+//
+// 메일 첨부·Slack 파일처럼 대화 중 오간 파일이다. 요구사항 카드가 '뭐라고 말했는가'라면
+// 이 자료들은 '무엇을 주고받았는가'다 — 같은 요구사항을 파악하는 데 같이 쓰는 근거다.
 
-import { useEffect, useState } from 'react';
-import { FileText, GitBranch, Mail, MessageSquare, X } from 'lucide-react';
-import { apiUrl, get } from '@/lib/api-client';
+import { useState } from 'react';
+import { FileText, GitBranch, Mail, MessageSquare } from 'lucide-react';
+import { apiUrl } from '@/lib/api-client';
 import { formatFileSize } from '@/lib/format';
-import { FileViewerModal } from './FileViewerModal';
+import { FileViewerModal } from '@/components/FileViewerModal';
 import type {
   MaterialClassificationStatus,
   MaterialDocumentType,
@@ -53,7 +53,7 @@ function formatDate(iso: string): string {
   });
 }
 
-function MaterialRow({
+export function MaterialRow({
   projectId,
   material,
   onView,
@@ -134,82 +134,28 @@ function MaterialRow({
   );
 }
 
-export function MaterialsDrawer({
+/** 파일 목록. 어떤 파일을 어떻게 여는지는 MaterialRow가 안다. */
+export function MaterialList({
   projectId,
-  onClose,
+  materials,
 }: {
   projectId: string;
-  onClose: () => void;
+  materials: ProjectMaterial[];
 }) {
-  const [materials, setMaterials] = useState<ProjectMaterial[] | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [viewing, setViewing] = useState<ProjectMaterial | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    get<ProjectMaterial[]>(`/api/projects/${projectId}/materials`).then((res) => {
-      if (cancelled) return;
-      if (!res.ok) {
-        setMessage(res.error);
-        return;
-      }
-      setMaterials(res.data);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId]);
-
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* 배경 — 누르면 닫힌다 */}
-      <button
-        type="button"
-        aria-label="닫기"
-        onClick={onClose}
-        className="absolute inset-0 bg-ink/20"
-      />
-
-      <aside className="relative flex h-full w-full max-w-md flex-col bg-surface shadow-card-hover">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <div>
-            <h2 className="text-sm font-semibold text-ink">주고받은 파일</h2>
-            <p className="mt-0.5 text-xs text-ink-faint">
-              메일 첨부와 Slack 파일을 모두 모았습니다. 요구사항을 파악할 자료로 함께 쓰세요.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1.5 text-ink-faint transition-colors hover:bg-paper hover:text-ink"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {message !== null ? (
-            <p className="px-5 py-4 text-sm text-ink-muted">{message}</p>
-          ) : materials === null ? (
-            <p className="px-5 py-4 text-sm text-ink-muted">불러오는 중…</p>
-          ) : materials.length === 0 ? (
-            <p className="px-5 py-4 text-sm text-ink-muted">
-              아직 주고받은 파일이 없습니다. 메일이나 Slack에서 파일을 주고받으면 여기 쌓입니다.
-            </p>
-          ) : (
-            <div className="divide-y divide-line">
-              {materials.map((material) => (
-                <MaterialRow
-                  key={material.materialId}
-                  projectId={projectId}
-                  material={material}
-                  onView={setViewing}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </aside>
+    <>
+      <div className="divide-y divide-line overflow-hidden rounded-lg bg-surface shadow-card">
+        {materials.map((material) => (
+          <MaterialRow
+            key={material.materialId}
+            projectId={projectId}
+            material={material}
+            onView={setViewing}
+          />
+        ))}
+      </div>
 
       {viewing && (
         <FileViewerModal
@@ -219,7 +165,6 @@ export function MaterialsDrawer({
           onClose={() => setViewing(null)}
         />
       )}
-    </div>
+    </>
   );
 }
-

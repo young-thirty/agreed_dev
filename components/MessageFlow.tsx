@@ -13,18 +13,26 @@ import { AnalysisRunner } from '@/components/AnalysisRunner';
 import { CHANNEL_META } from '@/components/channelMeta';
 import { DecisionPanel } from '@/components/DecisionPanel';
 import { DevContextSection } from '@/components/DevContextSection';
-import { EvidenceList } from '@/components/EvidenceList';
 import { FlowSection } from '@/components/FlowSection';
+import { MaterialList } from '@/components/MaterialList';
 import { MessageBody } from '@/components/MessageBody';
 import { ReplyDraft } from '@/components/ReplyDraft';
 import { saveDecision } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
-import type { Handling, Inbound, InboundDecision, Project, Ticket } from '@/types';
+import type {
+  Handling,
+  Inbound,
+  InboundDecision,
+  Project,
+  ProjectMaterial,
+  Ticket,
+} from '@/types';
 
 export function MessageFlow({
   inbound,
   project,
   ticket,
+  materials,
   decision,
   analyzed,
   onChanged,
@@ -33,6 +41,8 @@ export function MessageFlow({
   project: Project;
   /** 이 메시지가 붙어 있는 티켓. */
   ticket: Ticket;
+  /** 이 프로젝트의 자료. 이 티켓에 딸린 것만 골라 메시지 아래에 붙인다. */
+  materials: ProjectMaterial[];
   decision: InboundDecision;
   /** 서버 분석이 끝났는지. */
   analyzed: boolean;
@@ -44,6 +54,8 @@ export function MessageFlow({
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const { analysis } = inbound;
   const { icon: ChannelIcon, label: channelLabel } = CHANNEL_META[inbound.channel];
+  // 프로젝트 전체 자료(ticketId가 없는 것)는 파일 탭에서 본다. 여기서는 이 대화 것만.
+  const attachments = materials.filter((item) => item.ticketId === ticket.ticketId);
 
   async function choose(handling: Handling | null) {
     setMessage(null);
@@ -94,6 +106,13 @@ export function MessageFlow({
           </p>
           <MessageBody body={inbound.body} className="text-sm leading-relaxed text-ink" />
         </div>
+
+        {attachments.length > 0 && (
+          <div className="mt-2">
+            <p className="mb-2 text-xs text-ink-faint">첨부 {attachments.length}개</p>
+            <MaterialList projectId={project.projectId} materials={attachments} />
+          </div>
+        )}
       </FlowSection>
 
       {/* 2 — AI 분석 (+ 원하면 개발 상황까지) */}
@@ -113,15 +132,6 @@ export function MessageFlow({
             />
 
             <DevContextSection projectId={project.projectId} subject={ticket.title} />
-
-            {analysis.evidence.length > 0 && (
-              <div>
-                <p className="mb-2 mt-1 text-xs text-ink-faint">
-                  근거 — 눌러서 원문을 확인할 수 있습니다
-                </p>
-                <EvidenceList evidence={analysis.evidence} />
-              </div>
-            )}
           </div>
         ) : (
           <AnalysisRunner onRefresh={onChanged} />
