@@ -33,6 +33,28 @@
   --color-info: #3182f6; /* 정보 (파랑) */
   --color-info-soft: #e8f3ff;
 
+  /*
+   * 채널 브랜드 색. 어느 채널로 온 메시지인지 한눈에 갈라 보이게 쓴다.
+   * 파랑과 마찬가지로 면이 아니라 작은 칩 하나에만 얹는다.
+   */
+  --color-gmail: #c5221f; /* Gmail 레드. 흰 배경에서 글자로 읽히도록 진한 쪽 */
+  --color-gmail-soft: #fdecea;
+  --color-slack: #611f69; /* Slack 오버진 */
+  --color-slack-soft: #f4ecf5;
+
+  /*
+   * 보낸 사람 아바타. 같은 티켓에 여러 명이 섞일 때 누가 누군지 가르는 용도라
+   * 의미가 없는 중성 팔레트를 쓴다. 상태색(빨강·초록)을 빌려 쓰면 뜻이 섞인다.
+   */
+  --color-avatar-1: #e8f3ff;
+  --color-avatar-1-ink: #1b64da;
+  --color-avatar-2: #f2ecfb;
+  --color-avatar-2-ink: #6c3fc4;
+  --color-avatar-3: #e7f7ef;
+  --color-avatar-3-ink: #0a8f5c;
+  --color-avatar-4: #fff3e0;
+  --color-avatar-4-ink: #b45c00;
+
   /* 라운드는 토스 느낌으로 넉넉하게 (Tailwind rounded-md / rounded-lg 재정의) */
   --radius-md: 12px;
   --radius-lg: 16px;

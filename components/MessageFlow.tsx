@@ -10,13 +10,14 @@
 import { useState } from 'react';
 import { AnalysisCard } from '@/components/AnalysisCard';
 import { AnalysisRunner } from '@/components/AnalysisRunner';
-import { CHANNEL_META } from '@/components/channelMeta';
+import { ChannelChip } from '@/components/channelMeta';
 import { DecisionPanel } from '@/components/DecisionPanel';
 import { DevContextSection } from '@/components/DevContextSection';
 import { FlowSection } from '@/components/FlowSection';
 import { MaterialList } from '@/components/MaterialList';
 import { MessageBody } from '@/components/MessageBody';
 import { ReplyDraft } from '@/components/ReplyDraft';
+import { Sender } from '@/components/Sender';
 import { saveDecision } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import type {
@@ -53,7 +54,6 @@ export function MessageFlow({
   // 답변에 반영할 확인 항목. 서버 decision에는 자리가 없어 이 화면에서만 들고 있다.
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const { analysis } = inbound;
-  const { icon: ChannelIcon, label: channelLabel } = CHANNEL_META[inbound.channel];
   // 프로젝트 전체 자료(ticketId가 없는 것)는 파일 탭에서 본다. 여기서는 이 대화 것만.
   const attachments = materials.filter((item) => item.ticketId === ticket.ticketId);
 
@@ -92,18 +92,13 @@ export function MessageFlow({
       {/* 1 — 고객 메시지 원문 */}
       <FlowSection step={1} label="고객 메시지" hint={inbound.subject}>
         <div className="rounded-lg bg-surface p-5 shadow-card">
-          <p className="mb-3 flex items-center gap-1.5 border-b border-line pb-3 text-xs text-ink-faint">
-            {formatDateTime(inbound.createdAt)}
-            <span>·</span>
-            <ChannelIcon className="size-3.5" />
-            {channelLabel}
-            {inbound.fromName !== '' && (
-              <>
-                <span>·</span>
-                {inbound.fromName}
-              </>
-            )}
-          </p>
+          <div className="mb-3 flex items-center gap-2 border-b border-line pb-3 text-xs">
+            <Sender name={inbound.fromName} email={inbound.fromEmail} />
+            <span className="ml-auto flex shrink-0 items-center gap-1.5 text-ink-faint">
+              <ChannelChip channel={inbound.channel} />
+              {formatDateTime(inbound.createdAt)}
+            </span>
+          </div>
           <MessageBody body={inbound.body} className="text-sm leading-relaxed text-ink" />
         </div>
 

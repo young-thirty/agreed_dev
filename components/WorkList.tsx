@@ -8,11 +8,11 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { FolderKanban } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
-import { CHANNEL_META } from '@/components/channelMeta';
+import { ChannelChip } from '@/components/channelMeta';
 import { TicketStatusBadge } from '@/components/StatusBadges';
 import { previewLine } from '@/lib/email-clean';
 import { relativeTime } from '@/lib/format';
-import type { Channel, WorkItem, WorkStage } from '@/types';
+import type { WorkItem, WorkStage } from '@/types';
 
 type Filter = 'todo' | 'all' | 'Active' | 'Done' | 'Reject';
 
@@ -25,17 +25,6 @@ const FILTERS: { key: Filter; label: string }[] = [
 ];
 
 const needsWork = (stage: WorkStage) => stage === 'to_analyze' || stage === 'to_reply';
-
-/** 메시지가 들어온 채널. 좁은 줄이라 이름 대신 아이콘으로 둔다. */
-function ChannelIcon({ channel }: { channel: Channel }) {
-  const meta = CHANNEL_META[channel];
-  const Icon = meta.icon;
-  return (
-    <span title={meta.label} className="shrink-0 text-ink-faint">
-      <Icon className="size-3.5" aria-label={meta.label} />
-    </span>
-  );
-}
 
 /** 지금 이 줄에서 무슨 일이 벌어지고 있는지 한 마디. */
 function hintOf(item: WorkItem, stage: WorkStage): string {
@@ -124,7 +113,7 @@ export function WorkList() {
               >
                 <div className="flex items-center gap-2">
                   {/* 어느 채널로 온 메시지인지. 답을 다 한 티켓에는 붙일 근거가 없다. */}
-                  {pending !== null && <ChannelIcon channel={pending.channel} />}
+                  {pending !== null && <ChannelChip channel={pending.channel} />}
                   <TicketStatusBadge status={ticket.status} />
                   <span className="ml-auto shrink-0 text-xs text-ink-faint">
                     {relativeTime(item.lastActivityAt)}
@@ -136,7 +125,10 @@ export function WorkList() {
                 {pending !== null && (
                   <p className="mt-1 flex items-start gap-1.5 text-xs leading-snug text-ink-muted">
                     <span className="mt-1 size-1.5 shrink-0 rounded-full bg-accent" />
-                    <span className="line-clamp-2">새 메시지 — {previewLine(pending.preview)}</span>
+                    <span className="line-clamp-2">
+                      <span className="font-medium text-ink">{pending.fromName}</span> —{' '}
+                      {previewLine(pending.preview)}
+                    </span>
                   </p>
                 )}
 
