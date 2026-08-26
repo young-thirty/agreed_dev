@@ -12,6 +12,7 @@ import { ChevronRight, FolderKanban, LoaderCircle } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
 import { MessageFlow } from '@/components/MessageFlow';
 import { MessageHistory } from '@/components/MessageHistory';
+import { SimilarTicketNotice } from '@/components/SimilarTicketNotice';
 import { StageBadge } from '@/components/StatusBadges';
 import { getTicketDetail } from '@/lib/api';
 import { relativeTime } from '@/lib/format';
@@ -78,6 +79,13 @@ export default function TicketPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-8 py-7">
+      {pending !== null && (
+        <SimilarTicketNotice
+          ticketId={ticket.ticketId}
+          relatedTicketId={pending.analysis.relatedTicketId ?? null}
+        />
+      )}
+
       <header>
         <div className="flex items-center gap-2">
           <Link
