@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { AppStoreProvider } from '@/components/AppStore';
+import { GmailOnboardingModal } from '@/components/GmailOnboardingModal';
 import { Sidebar } from '@/components/Sidebar';
 
 // 앱 공통 레이아웃. 좌측 네비게이션 + 본문.
@@ -13,6 +14,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <Sidebar />
         <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
       </div>
+      <GmailOnboardingModal />
     </AppStoreProvider>
   );
 }

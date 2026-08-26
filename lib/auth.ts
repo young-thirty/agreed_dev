@@ -17,6 +17,8 @@ async function authenticate(path: string, body: unknown): Promise<AuthResult> {
   const res = await post<{ user: UserSummary }>(path, body);
   // 실패 문구는 서버가 사용자가 읽을 한국어로 내려준다. 여기서 다시 쓰지 않는다.
   if (!res.ok) return { ok: false, error: res.error };
+  // Gmail 안내 모달을 "나중에"로 닫아둔 것도 새 로그인에서는 초기화한다.
+  window.localStorage.removeItem('agreed:gmail-onboarding-dismissed');
   return { ok: true, user: res.data.user };
 }
 
