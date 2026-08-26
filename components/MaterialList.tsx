@@ -103,12 +103,19 @@ export function MaterialRow({
             </>
           )}
         </div>
+
+        {/* 원본이 없으면 눌러도 열리지 않는다. 왜 못 여는지는 말해 준다. */}
+        {!material.hasFile && (
+          <p className="mt-1 text-xs text-warn">
+            원본을 받아오지 못했습니다. 설정에서 채널 연결 상태를 확인해 주세요.
+          </p>
+        )}
       </div>
     </div>
   );
 
   if (!material.hasFile) {
-    return <div className="opacity-60">{row}</div>;
+    return row;
   }
 
   if (viewable) {
