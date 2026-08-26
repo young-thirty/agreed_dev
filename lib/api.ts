@@ -25,6 +25,16 @@ export function listWorkItems(projectId?: string): Promise<ApiResult<WorkItem[]>
   return get<WorkItem[]>(projectId === undefined ? '/api/tickets' : `/api/tickets?projectId=${projectId}`);
 }
 
+/**
+ * 이 프로젝트의 요구사항. 사람이 판단할 일감으로 서버가 올려 준 것만 들어 있다.
+ * sourceRequestId가 그 요구사항을 만든 티켓의 id다. 목록은 이걸로 티켓을 고른다.
+ */
+export function listRequirements(
+  projectId: string,
+): Promise<ApiResult<{ sourceRequestId?: string }[]>> {
+  return get<{ sourceRequestId?: string }[]>(`/api/projects/${projectId}/requirements`);
+}
+
 /** 티켓 상세. 상세 화면 한 장에 필요한 것이 다 들어 있다. */
 export function getTicketDetail(ticketId: string): Promise<ApiResult<TicketDetail>> {
   return get<TicketDetail>(`/api/tickets/${ticketId}`);
