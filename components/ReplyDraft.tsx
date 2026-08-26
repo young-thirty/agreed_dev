@@ -5,7 +5,7 @@
 // 초안은 서버가 만든다. 서버에는 발송 endpoint가 없으므로 여기서 보내지 않는다 —
 // 복사해서 메일·슬랙으로 직접 보내고, 보냈다고 표시만 남긴다.
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Check, Copy, LoaderCircle, RefreshCw, Send } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { createReplyDraft, markSent } from '@/lib/api';
@@ -89,6 +89,16 @@ export function ReplyDraft({
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const draftRef = useRef<HTMLTextAreaElement>(null);
+
+  // 초안 길이에 맞춰 높이를 늘린다. 안에서 또 스크롤되면 화면 스크롤과 겹친다.
+  useLayoutEffect(() => {
+    const el = draftRef.current;
+    if (el === null) return;
+    el.style.height = 'auto'; // 줄어들 때도 다시 재려면 먼저 되돌린다
+    // scrollHeight에는 테두리가 빠져 있다. box-sizing이 border-box라 두께만큼 더한다.
+    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
+  }, [draft]);
 
   async function generate(nextTone: ReplyTone, nextStance: Stance) {
     setTone(nextTone);
@@ -229,6 +239,7 @@ export function ReplyDraft({
         </div>
       ) : (
         <textarea
+          ref={draftRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={12}

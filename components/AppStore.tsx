@@ -3,6 +3,7 @@
 // 화면이 공유하는 상태.
 //
 // 프로젝트와 티켓은 백엔드가 원천이다(GET /api/projects, GET /api/tickets).
+// 목록에 세울 티켓은 요구사항이 정한다(GET /api/projects/{id}/requirements).
 // 사람이 내린 판단도 이제 서버에 남는다. 브라우저에는 아무것도 저장하지 않는다.
 //
 // AI는 분석과 초안까지만 한다. 티켓 반영·분리, 상태 변경, 발송 표시는
@@ -17,7 +18,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { listProjects, listWorkItems, setTicketStatus as setTicketStatusApi } from '@/lib/api';
+import {
+  listProjects,
+  listRequirements,
+  listWorkItems,
+  setTicketStatus as setTicketStatusApi,
+} from '@/lib/api';
 import type { Project, TicketStatus, WorkItem } from '@/types';
 
 interface AppStore {
@@ -36,6 +42,40 @@ interface AppStore {
 
 const Ctx = createContext<AppStore | null>(null);
 
+/**
+ * 요구사항으로 올라온 티켓만 남긴다.
+ *
+ * GET /api/tickets는 분석이 만든 요청을 거르지 않고 전부 준다. 인사말이나 잡담에서
+ * 만들어진 것까지 섞여 있어 그대로 그리면 목록이 일감이 아닌 줄로 덮인다.
+ * 사람이 판단할 일감인지는 서버가 요구사항으로 올렸는지로 정해진다.
+ *
+ * 요구사항을 읽지 못한 프로젝트의 티켓은 그대로 둔다. 잠깐 못 읽었다고 목록이
+ * 통째로 비면 무엇이 잘못됐는지 알 길이 없다.
+ */
+async function onlyRequirementTickets(
+  items: WorkItem[],
+  projects: Project[],
+): Promise<WorkItem[]> {
+  if (projects.length === 0) return items;
+
+  const results = await Promise.all(projects.map((p) => listRequirements(p.projectId)));
+  const allowed = new Set<string>();
+  const unread = new Set<string>();
+  results.forEach((res, index) => {
+    if (!res.ok) {
+      unread.add(projects[index].projectId);
+      return;
+    }
+    for (const item of res.data) {
+      if (item.sourceRequestId) allowed.add(item.sourceRequestId);
+    }
+  });
+
+  return items.filter(
+    (item) => allowed.has(item.ticket.ticketId) || unread.has(item.ticket.projectId),
+  );
+}
+
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
@@ -51,8 +91,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     setError(null);
-    setWorkItems(ticketRes.data);
-    if (projectRes.ok) setProjects(projectRes.data);
+    const projectList = projectRes.ok ? projectRes.data : [];
+    if (projectRes.ok) setProjects(projectList);
+    setWorkItems(await onlyRequirementTickets(ticketRes.data, projectList));
   }, []);
 
   useEffect(() => {

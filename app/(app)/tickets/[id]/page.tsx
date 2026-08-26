@@ -14,9 +14,10 @@ import { MessageFlow } from '@/components/MessageFlow';
 import { MessageHistory } from '@/components/MessageHistory';
 import { SimilarTicketNotice } from '@/components/SimilarTicketNotice';
 import { StageBadge } from '@/components/StatusBadges';
+import { TicketStatusControl } from '@/components/TicketStatusControl';
 import { getTicketDetail } from '@/lib/api';
 import { relativeTime } from '@/lib/format';
-import { TICKET_STATUS, type TicketDetail, type TicketStatus } from '@/types';
+import type { TicketDetail, TicketStatus } from '@/types';
 
 export default function TicketPage() {
   const { id } = useParams<{ id: string }>();
@@ -105,20 +106,7 @@ export default function TicketPage() {
           <h1 className="min-w-0 flex-1 text-xl font-semibold leading-snug tracking-tight text-ink">
             {ticket.title}
           </h1>
-          <label className="flex shrink-0 items-center gap-2">
-            <span className="sr-only">티켓 상태</span>
-            <select
-              value={ticket.status}
-              onChange={(e) => onStatusChange(e.target.value as TicketStatus)}
-              className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-accent"
-            >
-              {TICKET_STATUS.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
+          <TicketStatusControl status={ticket.status} onChange={onStatusChange} />
         </div>
 
         <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-faint">
