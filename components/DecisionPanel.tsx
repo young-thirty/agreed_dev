@@ -75,9 +75,6 @@ export function DecisionPanel({
             <p className="text-sm font-medium text-ink">이 요구를 티켓에 반영할까요?</p>
 
             <div className="mt-3 flex items-center gap-2.5 rounded-md border border-line bg-paper px-3 py-2.5">
-              <span className="whitespace-nowrap font-mono text-xs text-ink-faint">
-                {currentTicket.ticketId}
-              </span>
               <span className="min-w-0 flex-1 truncate text-sm text-ink">{currentTicket.title}</span>
               <TicketStatusBadge status={currentTicket.status} />
             </div>
@@ -97,7 +94,7 @@ export function DecisionPanel({
 
             <p className="mt-3 text-xs text-ink-faint">
               {relatedTicket !== null && relatedTicket.ticketId !== currentTicket.ticketId
-                ? `AI는 ${relatedTicket.ticketId} ${relatedTicket.title}도 함께 봤습니다. `
+                ? `AI는 ${relatedTicket.title}도 함께 봤습니다. `
                 : ''}
               요구사항 확정과 상태 변경은 사람만 합니다. 누르기 전에는 아무것도 바뀌지 않습니다.
             </p>
@@ -112,9 +109,6 @@ export function DecisionPanel({
                   href={`/tickets/${splitTicket.ticketId}`}
                   className="mt-1 inline-flex items-center gap-2 text-sm text-accent hover:underline"
                 >
-                  <span className="whitespace-nowrap font-mono text-xs">
-                    {splitTicket.ticketId}
-                  </span>
                   {splitTicket.title}
                 </Link>
               )}

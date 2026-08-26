@@ -116,3 +116,13 @@ export function splitQuoted(body: string): { kept: string[]; quoted: QuotedLine[
     quoted: start === -1 ? [] : toQuotedLines(text.slice(start)),
   };
 }
+
+/**
+ * 목록에 한 줄로 보여줄 미리보기. 인용과 서명을 걷어낸 본문을 한 줄로 잇는다.
+ * 새로 쓴 부분이 없는 메시지(인용만 있는 회신)는 인용 내용이라도 보여준다.
+ */
+export function previewLine(body: string): string {
+  const { kept, quoted } = splitQuoted(body);
+  if (kept.length > 0) return kept.join(' ');
+  return quoted.find((line) => !line.header)?.text ?? '';
+}
