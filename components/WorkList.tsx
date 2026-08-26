@@ -10,6 +10,7 @@ import { FolderKanban } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
 import { CHANNEL_META } from '@/components/channelMeta';
 import { TicketStatusBadge } from '@/components/StatusBadges';
+import { previewLine } from '@/lib/email-clean';
 import { relativeTime } from '@/lib/format';
 import type { Channel, WorkItem, WorkStage } from '@/types';
 
@@ -135,7 +136,7 @@ export function WorkList() {
                 {pending !== null && (
                   <p className="mt-1 flex items-start gap-1.5 text-xs leading-snug text-ink-muted">
                     <span className="mt-1 size-1.5 shrink-0 rounded-full bg-accent" />
-                    <span className="line-clamp-2">새 메시지 — {pending.preview}</span>
+                    <span className="line-clamp-2">새 메시지 — {previewLine(pending.preview)}</span>
                   </p>
                 )}
 

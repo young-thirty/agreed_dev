@@ -114,8 +114,6 @@ export default function TicketPage() {
         </div>
 
         <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-faint">
-          <span className="font-mono">{ticket.ticketCode}</span>
-          <span>·</span>
           <span>{ticket.category}</span>
           <span>·</span>
           <span>마지막 업데이트 {relativeTime(detail.lastActivityAt)}</span>

@@ -4,6 +4,7 @@
 // 상태는 사람이 직접 고른다. AI가 Active·Done으로 바꾸지 않는다.
 
 import { Badge } from '@/components/Badge';
+import { previewLine } from '@/lib/email-clean';
 import { relativeTime } from '@/lib/format';
 import { TICKET_STATUS, type Ticket, type TicketStatus } from '@/types';
 
@@ -17,6 +18,9 @@ export function TicketCard({
   highlighted?: boolean;
   onStatusChange: (status: TicketStatus) => void;
 }) {
+  // 인용된 이전 대화와 서명을 걷어낸 한 줄. 원문 그대로면 목록이 읽히지 않는다.
+  const recent = ticket.lastCustomerMessage === null ? '' : previewLine(ticket.lastCustomerMessage);
+
   return (
     <li
       className={`rounded-lg bg-surface p-5 shadow-card ${
@@ -25,10 +29,7 @@ export function TicketCard({
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-ink-faint">{ticket.ticketCode}</span>
-            <Badge tone="neutral">{ticket.category}</Badge>
-          </div>
+          <Badge tone="neutral">{ticket.category}</Badge>
           <p className="mt-1.5 text-sm font-medium text-ink">{ticket.title}</p>
         </div>
 
@@ -53,10 +54,10 @@ export function TicketCard({
         <dt className="text-xs text-ink-faint">요구사항</dt>
         <dd className="text-ink">{ticket.requirement}</dd>
 
-        {ticket.lastCustomerMessage !== null && (
+        {recent !== '' && (
           <>
             <dt className="text-xs text-ink-faint">최근 요청</dt>
-            <dd className="text-ink-muted">“{ticket.lastCustomerMessage}”</dd>
+            <dd className="text-ink-muted">“{recent}”</dd>
           </>
         )}
 

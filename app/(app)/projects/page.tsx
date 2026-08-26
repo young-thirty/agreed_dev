@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { LoaderCircle } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
 import { ProjectStatusBadge } from '@/components/StatusBadges';
+import { previewLine } from '@/lib/email-clean';
 import { relativeTime } from '@/lib/format';
 
 const won = (n: number | null) => (n === null ? '금액 미정' : '₩' + n.toLocaleString('ko-KR'));
@@ -38,8 +39,10 @@ export default function ProjectsPage() {
           {projects.map((project) => {
             const tickets = workItems.filter((item) => item.ticket.projectId === project.projectId);
             const activeTickets = tickets.filter((item) => item.ticket.status === 'Active').length;
-            const lastMessage = tickets.find((item) => item.ticket.lastCustomerMessage !== null)
-              ?.ticket.lastCustomerMessage;
+            const raw = tickets.find((item) => item.ticket.lastCustomerMessage !== null)?.ticket
+              .lastCustomerMessage;
+            // 인용된 이전 대화와 서명을 걷어낸 한 줄만 보여준다.
+            const lastMessage = raw === undefined || raw === null ? '' : previewLine(raw);
 
             return (
               <li key={project.projectId}>
@@ -60,7 +63,7 @@ export default function ProjectsPage() {
                     {project.clientEmail !== null && ` · ${project.clientEmail}`}
                   </p>
 
-                  {lastMessage !== undefined && lastMessage !== null && (
+                  {lastMessage !== '' && (
                     <p className="mt-2.5 truncate text-sm text-ink">“{lastMessage}”</p>
                   )}
 
