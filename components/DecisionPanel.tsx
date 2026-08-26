@@ -5,11 +5,11 @@
 // 티켓에 반영할지 말지는 묻지 않는다. 인바운드가 작업 단위로 들어온 순간 이미 티켓이다.
 // 여기서 정하는 것은 답변에 무엇을 담을지, 그리고 AI가 정할 수 없는 값이다.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ListChecks, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { getChecklist } from '@/lib/api';
-import type { Analysis, InboundDecision } from '@/types';
+import type { Analysis, DecisionField, InboundDecision } from '@/types';
 
 const inputClass =
   'w-full rounded-md border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent';
@@ -103,13 +103,11 @@ export function DecisionPanel({
             {analysis.decisionFields.map((field) => (
               <label key={field.id} className="flex flex-col gap-1.5 text-xs text-ink-muted">
                 {field.label}
-                <input
-                  type={field.type === 'money' ? 'number' : field.type === 'date' ? 'date' : 'text'}
-                  value={decision.values[field.id] ?? ''}
-                  placeholder={field.placeholder}
-                  onChange={(e) => onValueChange(field.id, e.target.value)}
+                <DecisionInput
+                  field={field}
+                  saved={decision.values[field.id] ?? ''}
                   disabled={locked}
-                  className={inputClass}
+                  onCommit={(value) => onValueChange(field.id, value)}
                 />
               </label>
             ))}
@@ -117,5 +115,68 @@ export function DecisionPanel({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 사람이 정하는 값 한 칸.
+ *
+ * 한 글자마다 서버에 저장하면 저장이 끝나는 사이 화면 값이 서버 값으로 되돌아가
+ * 입력이 뭉개진다. 그래서 타이핑은 이 칸이 바로 받고, 저장은 손을 멈춘 뒤에 한 번만 보낸다.
+ */
+function DecisionInput({
+  field,
+  saved,
+  disabled,
+  onCommit,
+}: {
+  field: DecisionField;
+  /** 서버에 저장돼 있는 값. */
+  saved: string;
+  disabled: boolean;
+  onCommit: (value: string) => void;
+}) {
+  const [value, setValue] = useState(saved);
+  const editing = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 내가 고치는 중이 아닐 때만 서버 값을 따라간다. 그래야 타이핑이 덮이지 않는다.
+  useEffect(() => {
+    if (!editing.current) setValue(saved);
+  }, [saved]);
+
+  useEffect(() => {
+    return () => {
+      if (timer.current !== null) clearTimeout(timer.current);
+    };
+  }, []);
+
+  function change(next: string) {
+    setValue(next);
+    editing.current = true;
+    if (timer.current !== null) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      editing.current = false;
+      onCommit(next);
+    }, 600);
+  }
+
+  return (
+    <input
+      type={field.type === 'money' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+      value={value}
+      placeholder={field.placeholder}
+      onChange={(e) => change(e.target.value)}
+      onBlur={() => {
+        // 칸을 떠나면 기다리지 않고 바로 저장한다.
+        if (timer.current !== null) clearTimeout(timer.current);
+        if (value !== saved) {
+          editing.current = false;
+          onCommit(value);
+        }
+      }}
+      disabled={disabled}
+      className={inputClass}
+    />
   );
 }

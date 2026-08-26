@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { FolderKanban } from 'lucide-react';
+import { FolderKanban, Search, X } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
 import { ChannelChip } from '@/components/channelMeta';
 import { TicketStatusBadge } from '@/components/StatusBadges';
@@ -38,21 +38,39 @@ export function WorkList() {
   const { workItems, projects, loaded, error } = useAppStore();
   const params = useParams<{ id?: string }>();
   const [filter, setFilter] = useState<Filter>('todo');
+  const [query, setQuery] = useState('');
 
   const counts = useMemo(() => {
     const todo = workItems.filter((item) => needsWork(item.workStage)).length;
     return { todo, all: workItems.length };
   }, [workItems]);
 
-  const visible = useMemo(
-    () =>
-      workItems.filter((item) => {
-        if (filter === 'all') return true;
-        if (filter === 'todo') return needsWork(item.workStage);
-        return item.ticket.status === filter;
-      }),
-    [workItems, filter],
-  );
+  const visible = useMemo(() => {
+    // 제목·요구사항·고객 이름·프로젝트 이름 중 어디에 걸려도 찾아 준다.
+    const keyword = query.trim().toLowerCase();
+    const matches = (item: WorkItem) => {
+      if (keyword === '') return true;
+      const project = projects.find((p) => p.projectId === item.ticket.projectId);
+      return [
+        item.ticket.title,
+        item.ticket.requirement,
+        item.ticket.category,
+        item.pending?.fromName ?? '',
+        item.pending?.preview ?? '',
+        project?.name ?? '',
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(keyword);
+    };
+
+    return workItems.filter((item) => {
+      if (!matches(item)) return false;
+      if (filter === 'all') return true;
+      if (filter === 'todo') return needsWork(item.workStage);
+      return item.ticket.status === filter;
+    });
+  }, [workItems, projects, filter, query]);
 
   return (
     <div className="flex h-full w-[380px] shrink-0 flex-col border-r border-line bg-surface">
@@ -62,7 +80,28 @@ export function WorkList() {
           고객 메시지는 관련 티켓에 붙고, 관련 티켓이 없으면 새 티켓으로 들어옵니다.
         </p>
 
-        <div className="mt-3 flex gap-1 rounded-lg bg-paper p-1">
+        <div className="relative mt-3">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-ink-faint" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="티켓 · 고객 · 프로젝트 검색"
+            aria-label="티켓 검색"
+            className="w-full rounded-md border border-line bg-paper py-1.5 pl-8 pr-8 text-xs text-ink placeholder:text-ink-faint focus:border-accent focus:bg-surface focus:outline-3 focus:outline-accent-soft"
+          />
+          {query !== '' && (
+            <button
+              type="button"
+              aria-label="검색어 지우기"
+              onClick={() => setQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-faint transition-colors hover:text-ink"
+            >
+              <X className="size-3" />
+            </button>
+          )}
+        </div>
+
+        <div className="mt-2 flex gap-1 rounded-lg bg-paper p-1">
           {FILTERS.map((f) => (
             <button
               key={f.key}
@@ -92,7 +131,11 @@ export function WorkList() {
 
         {error === null && loaded && visible.length === 0 && (
           <li className="px-5 py-8 text-sm text-ink-faint">
-            {filter === 'todo' ? '지금 처리할 것이 없습니다.' : '해당하는 티켓이 없습니다.'}
+            {query !== ''
+              ? `“${query}”에 해당하는 티켓이 없습니다.`
+              : filter === 'todo'
+                ? '지금 처리할 것이 없습니다.'
+                : '해당하는 티켓이 없습니다.'}
           </li>
         )}
 

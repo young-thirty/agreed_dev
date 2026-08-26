@@ -2,9 +2,12 @@
 
 // 프로젝트 목록. 지금 사람 손이 필요한 티켓이 몇 건인지만 빠르게 보이면 된다.
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, Plus } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
+import { Button } from '@/components/Button';
+import { NewProjectDialog } from '@/components/NewProjectDialog';
 import { ProjectStatusBadge } from '@/components/StatusBadges';
 import { previewLine } from '@/lib/email-clean';
 import { relativeTime } from '@/lib/format';
@@ -12,15 +15,24 @@ import { relativeTime } from '@/lib/format';
 const won = (n: number | null) => (n === null ? '금액 미정' : '₩' + n.toLocaleString('ko-KR'));
 
 export default function ProjectsPage() {
-  const { projects, workItems, loaded, error } = useAppStore();
+  const { projects, workItems, loaded, error, reload } = useAppStore();
+  const [creating, setCreating] = useState(false);
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl px-8 py-7">
-        <h1 className="text-xl font-semibold tracking-tight">프로젝트</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          고객 메시지는 등록된 메일 주소와 슬랙 채널을 보고 프로젝트에 분류됩니다.
-        </p>
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-semibold tracking-tight">프로젝트</h1>
+            <p className="mt-1 text-sm text-ink-muted">
+              고객 메시지는 등록된 메일 주소와 슬랙 채널을 보고 프로젝트에 분류됩니다.
+            </p>
+          </div>
+          <Button variant="primary" onClick={() => setCreating(true)}>
+            <Plus className="size-4" />
+            새 프로젝트
+          </Button>
+        </div>
 
         {error !== null && <p className="mt-8 text-sm text-ink-faint">{error}</p>}
 
@@ -88,6 +100,8 @@ export default function ProjectsPage() {
           })}
         </ul>
       </div>
+
+      {creating && <NewProjectDialog onClose={() => setCreating(false)} onCreated={reload} />}
     </div>
   );
 }

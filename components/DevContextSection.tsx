@@ -4,28 +4,46 @@
 //
 // 저장소를 뒤지는 일은 시간이 걸리고 모든 티켓에 필요하지도 않다.
 // 그래서 분석이 끝난 뒤, 사람이 누를 때만 GitHub에 물어본다.
+//
+// 분석이 이미 기능 단위로 접어 둔 현황(devContext)을 갖고 있으면 그것을 보여주고,
+// 없으면 저장소에 그대로 물어 답을 줄글로 보여준다.
 
 import { useState } from 'react';
 import { Check, CodeXml, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/Button';
+import { DevContextCard } from '@/components/DevContextCard';
 import { askGit } from '@/lib/api';
+import type { DevContext } from '@/types';
 
 export function DevContextSection({
   projectId,
   subject,
+  devContext = null,
 }: {
   projectId: string;
   /** 무엇에 대해 물어볼지. 티켓 제목을 그대로 쓴다. */
   subject: string;
+  /** 분석이 이미 정리해 둔 개발 현황. 있으면 저장소에 다시 묻지 않는다. */
+  devContext?: DevContext | null;
 }) {
   const [answer, setAnswer] = useState<string | null>(null);
   const [repo, setRepo] = useState<string | null>(null);
+  const [shown, setShown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   async function ask() {
     setLoading(true);
     setMessage(null);
+
+    if (devContext !== null) {
+      // 이미 확인해 둔 내용이다. 읽어 오는 시간만큼만 기다렸다가 펼친다.
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      setLoading(false);
+      setShown(true);
+      return;
+    }
+
     const res = await askGit(
       projectId,
       `"${subject}" 관련해서 지금 저장소에 구현된 부분, 진행 중인 작업, 아직 없는 부분을 짧게 정리해줘.`,
@@ -37,6 +55,10 @@ export function DevContextSection({
     }
     setAnswer(res.data.answer);
     setRepo(res.data.repoFullName);
+  }
+
+  if (shown && devContext !== null) {
+    return <DevContextCard dev={devContext} repo={devContext.repoFullName} />;
   }
 
   if (answer !== null) {

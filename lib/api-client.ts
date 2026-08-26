@@ -1,3 +1,4 @@
+import { demoBlob, demoMaterialUrl, demoRequest } from '@/mocks/server';
 import type { ApiResult } from '@/types';
 
 const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -5,8 +6,15 @@ const API_BASE_URL = (
   configuredApiBaseUrl ?? (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '')
 ).replace(/\/$/, '');
 
+/**
+ * 시연 모드. 켜져 있으면 서버로 나가지 않고 mocks/server.ts가 응답한다.
+ * 발표용 demo 브랜치라 기본이 켜짐이다. 실제 백엔드에 붙이려면 NEXT_PUBLIC_DEMO=0을 준다.
+ */
+export const DEMO = process.env.NEXT_PUBLIC_DEMO !== '0';
+
 /** OAuth 이동과 Slack 파일 URL도 같은 FastAPI 주소를 사용한다. */
 export function apiUrl(path: string): string {
+  if (DEMO) return demoMaterialUrl(path);
   if (!API_BASE_URL) {
     throw new Error('NEXT_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
   }
@@ -31,6 +39,10 @@ function parseApiResult<T>(payload: unknown, status: number): ApiResult<T> {
 }
 
 async function request<T>(path: string, init: RequestInit): Promise<ApiResult<T>> {
+  if (DEMO) {
+    const body = init.body === undefined ? undefined : JSON.parse(String(init.body));
+    return demoRequest<T>(init.method ?? 'GET', path, body);
+  }
   try {
     const headers = init.body === undefined
       ? init.headers
@@ -69,6 +81,7 @@ export async function patch<T>(path: string, body: unknown): Promise<ApiResult<T
  * 실패하면 서버가 { ok:false, error }를 JSON으로 돌려주므로 그걸 그대로 읽는다.
  */
 export async function getBlob(path: string): Promise<ApiResult<Blob>> {
+  if (DEMO) return demoBlob(path);
   try {
     const res = await fetch(apiUrl(path), { credentials: 'include' });
     if (!res.ok) {

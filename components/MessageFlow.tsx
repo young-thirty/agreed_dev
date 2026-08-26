@@ -13,6 +13,7 @@ import { AnalysisRunner } from '@/components/AnalysisRunner';
 import { ChannelChip } from '@/components/channelMeta';
 import { DecisionPanel } from '@/components/DecisionPanel';
 import { DevContextSection } from '@/components/DevContextSection';
+import { EvidenceList } from '@/components/EvidenceList';
 import { FeasibilityCard } from '@/components/FeasibilityCard';
 import { FlowSection } from '@/components/FlowSection';
 import { MaterialList } from '@/components/MaterialList';
@@ -124,7 +125,13 @@ export function MessageFlow({
 
             <FeasibilityCard feasibility={feasibility} />
 
-            <DevContextSection projectId={project.projectId} subject={ticket.title} />
+            <EvidenceList evidence={analysis.evidence} />
+
+            <DevContextSection
+              projectId={project.projectId}
+              subject={ticket.title}
+              devContext={analysis.devContext}
+            />
           </div>
         )}
       </FlowSection>

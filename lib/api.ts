@@ -208,3 +208,45 @@ export function askGit(
     question,
   });
 }
+
+// ─────────────────────────────────────────────────────────────
+// 계정 단위 연동 (설정 화면)
+//
+// Gmail은 예전부터 /api/email/status로 상태를 읽는다. 슬랙·GitHub까지 한 화면에서
+// 함께 보여주기 위해 세 연동을 같은 모양으로 읽고 쓰는 창구를 둔다.
+// ─────────────────────────────────────────────────────────────
+
+export type IntegrationProvider = 'gmail' | 'slack' | 'github';
+
+export interface IntegrationStatus {
+  connected: boolean;
+  /** 어느 계정·워크스페이스로 연결돼 있는지. 연결 전에는 null이다. */
+  account: string | null;
+}
+
+export function getIntegrations(): Promise<ApiResult<Record<IntegrationProvider, IntegrationStatus>>> {
+  return get<Record<IntegrationProvider, IntegrationStatus>>('/api/integrations');
+}
+
+export function setIntegration(
+  provider: IntegrationProvider,
+  connected: boolean,
+): Promise<ApiResult<IntegrationStatus>> {
+  return post<IntegrationStatus>(
+    `/api/integrations/${provider}/${connected ? 'connect' : 'disconnect'}`,
+    {},
+  );
+}
+
+/** 프로젝트를 새로 만든다. 만든 직후에는 계약 전(Draft)이다. */
+export function createProject(input: {
+  name: string;
+  clientName: string;
+  clientEmail: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  contractPrice: string;
+}): Promise<ApiResult<Project>> {
+  return post<Project>('/api/projects', input);
+}
