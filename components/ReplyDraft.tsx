@@ -6,12 +6,39 @@
 // 복사해서 메일·슬랙으로 직접 보내고, 보냈다고 표시만 남긴다.
 
 import { useState } from 'react';
-import { Check, Copy, LoaderCircle, RefreshCw, Send, Sparkles } from 'lucide-react';
+import { Check, Copy, LoaderCircle, RefreshCw, Send } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { createReplyDraft, markSent } from '@/lib/api';
 import { formatDateTime, won } from '@/lib/format';
 import type { ReplyTone } from '@/types/api';
 import type { DecisionField } from '@/types';
+
+/**
+ * 이 답변으로 무엇을 하려는가. 서버 초안 API에는 이 자리가 없어서,
+ * 확인 항목과 같은 방식으로 문장 하나를 얹어 보낸다(아래 valueSentences와 같다).
+ */
+const STANCES = [
+  {
+    key: 'ask',
+    label: '문의',
+    hint: '애매한 부분을 되묻습니다',
+    sentence: '아직 확정할 수 없는 부분을 고객에게 되묻는 답변으로 쓴다.',
+  },
+  {
+    key: 'request',
+    label: '요청',
+    hint: '필요한 것을 요청합니다',
+    sentence: '진행에 필요한 것을 고객에게 요청하는 답변으로 쓴다.',
+  },
+  {
+    key: 'decline',
+    label: '거절',
+    hint: '이번 요청은 어렵다고 답합니다',
+    sentence: '이 요청은 받아들이기 어렵다고 정중히 거절하는 답변으로 쓴다.',
+  },
+] as const;
+
+type Stance = (typeof STANCES)[number]['key'];
 
 /** 화면의 말투 이름과 서버가 받는 값. */
 const TONES: { value: ReplyTone; label: string }[] = [
@@ -55,6 +82,7 @@ export function ReplyDraft({
   sentAt: string | null;
   onSent: () => void;
 }) {
+  const [stance, setStance] = useState<Stance | null>(null);
   const [tone, setTone] = useState<ReplyTone>('professional');
   const [draft, setDraft] = useState<string | null>(savedReplyText);
   const [loading, setLoading] = useState(false);
@@ -62,12 +90,16 @@ export function ReplyDraft({
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  async function generate(nextTone: ReplyTone) {
+  async function generate(nextTone: ReplyTone, nextStance: Stance) {
     setTone(nextTone);
+    setStance(nextStance);
     setLoading(true);
     setMessage(null);
+    const stanceSentence = STANCES.find((item) => item.key === nextStance)!.sentence;
     const res = await createReplyDraft(ticketId, {
-      selectedItems: [...selectedItems, ...valueSentences(fields, values)],
+      sourceMessageId,
+      // 성격을 먼저 둔다. 서버가 6개까지만 반영하므로 잘려도 이건 남는다.
+      selectedItems: [stanceSentence, ...selectedItems, ...valueSentences(fields, values)],
       tone: nextTone,
     });
     setLoading(false);
@@ -120,31 +152,65 @@ export function ReplyDraft({
 
   return (
     <div className="rounded-lg bg-surface p-5 shadow-card">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex flex-wrap gap-1 rounded-lg bg-paper p-1">
-          {TONES.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              disabled={loading}
-              onClick={() => generate(option.value)}
-              className={`rounded-md px-2.5 py-1 text-xs transition-all disabled:opacity-50 ${
-                tone === option.value && draft !== null
-                  ? 'bg-surface font-medium text-ink shadow-pop'
-                  : 'text-ink-muted hover:text-ink'
+      <p className="text-sm font-medium text-ink">이 답변으로 무엇을 하시겠어요?</p>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        {STANCES.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            disabled={loading}
+            onClick={() => generate(tone, option.key)}
+            className={`rounded-md border px-3 py-2 text-left transition-colors disabled:opacity-50 ${
+              stance === option.key
+                ? 'border-accent bg-accent-soft'
+                : 'border-line bg-paper hover:border-ink-faint'
+            }`}
+          >
+            <span
+              className={`block text-sm font-medium ${
+                stance === option.key ? 'text-accent' : 'text-ink'
               }`}
             >
               {option.label}
-            </button>
-          ))}
-        </div>
-        {draft !== null && (
-          <Button variant="ghost" size="sm" onClick={() => generate(tone)} disabled={loading}>
-            <RefreshCw className="size-3.5" />
-            다시 생성
-          </Button>
-        )}
+            </span>
+            <span className="mt-0.5 block text-xs leading-snug text-ink-faint">{option.hint}</span>
+          </button>
+        ))}
       </div>
+
+      {stance !== null && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-ink-faint">말투</span>
+          <div className="inline-flex flex-wrap gap-1 rounded-lg bg-paper p-1">
+            {TONES.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                disabled={loading}
+                onClick={() => generate(option.value, stance)}
+                className={`rounded-md px-2.5 py-1 text-xs transition-all disabled:opacity-50 ${
+                  tone === option.value && draft !== null
+                    ? 'bg-surface font-medium text-ink shadow-pop'
+                    : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          {draft !== null && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => generate(tone, stance)}
+              disabled={loading}
+            >
+              <RefreshCw className="size-3.5" />
+              다시 생성
+            </Button>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-3 flex h-44 flex-col justify-center gap-2 rounded-md border border-line px-3">
@@ -156,14 +222,10 @@ export function ReplyDraft({
           <span className="skeleton-bar h-3 w-3/5" />
         </div>
       ) : draft === null ? (
-        <div className="mt-3 flex flex-col items-start gap-3 rounded-md border border-line px-4 py-5">
+        <div className="mt-3 rounded-md border border-line px-4 py-5">
           <p className="text-sm text-ink-faint">
-            위에서 정한 판단과 고른 확인 항목을 반영해 초안을 만듭니다.
+            위에서 답변의 성격을 고르면, 고른 확인 항목과 정한 값을 반영해 초안을 만듭니다.
           </p>
-          <Button variant="primary" onClick={() => generate(tone)}>
-            <Sparkles className="size-4" />
-            답변 초안 만들기
-          </Button>
         </div>
       ) : (
         <textarea

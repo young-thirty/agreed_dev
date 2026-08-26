@@ -181,6 +181,27 @@ export interface DevContext {
   relatedWork: { title: string; note: string }[];
   /** 이 요청이 건드리게 될 코드 영역. */
   impactAreas: string[];
+  /** 어느 저장소를 읽었는지. 연결이 없으면 null이다. */
+  repoFullName: string | null;
+  /** 저장소를 실제로 확인했는지. 아직이면 값이 비어 있다. */
+  checked: boolean;
+}
+
+/**
+ * 기술적으로 만들 수 있는가. 계약 범위 판정과는 다른 축이다.
+ * 계약 밖이어도 기술적으로는 쉬울 수 있고, 계약 안이어도 막힐 수 있다.
+ */
+export type FeasibilityVerdict =
+  | 'feasible'
+  | 'feasible_with_scope_change'
+  | 'needs_clarification'
+  | 'blocked';
+
+export interface Feasibility {
+  verdict: FeasibilityVerdict;
+  reason: string;
+  /** AI가 정할 수 없어 사람에게 물어야 하는 것들. */
+  requiredHumanInput: string[];
 }
 
 /** AI가 확정할 수 없어 사람에게 입력받는 값. */
@@ -196,14 +217,18 @@ export const TONES = ['base', 'friendly', 'short', 'firm'] as const;
 export type Tone = (typeof TONES)[number];
 
 export interface Analysis {
-  /** 지금 무슨 상황인지 한 줄. */
+  /** 지금 무슨 상황인지 한 줄. 서버 솔루션의 조언이다. */
   headline: string;
+  /** 그렇게 판단한 이유. 솔루션이 없으면 빈 문자열이다. */
+  adviceReason: string;
   /** 여러 요청이 섞여 있으면 채운다. 비어 있으면 단일 요청이다. */
   intents: Intent[];
   fields: AnalysisField[];
   /** 정보가 부족해 원인·범위를 특정할 수 없을 때 필요한 것들. */
   missingInfo: string[];
   devContext: DevContext | null;
+  /** 작업 가능 여부. 솔루션을 만들기 전에는 null이다. */
+  feasibility: Feasibility | null;
   evidence: Evidence[];
   /** 관련 있어 보이는 기존 티켓. 반영 여부는 사람이 정한다. */
   relatedTicketId: string | null;
