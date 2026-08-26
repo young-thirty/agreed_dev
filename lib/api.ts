@@ -63,12 +63,30 @@ export function setTicketStatus(ticketId: string, status: TicketStatus): Promise
   });
 }
 
-/** 답변 초안을 만든다. 사람이 고른 확인 항목만 반영된다. */
+/**
+ * 이 티켓의 AI 솔루션을 만든다. 계약 범위 대조·개발 현황·영향 범위·작업 가능 여부를
+ * 각각 판단해 하나로 종합하고, 기본 답변 초안까지 만든다.
+ *
+ * 서버가 한 번 만들면 저장하고 그대로 돌려준다. 다시 만들려면 refresh를 준다.
+ * 결과는 다음 티켓 조회의 analysis에 실려 온다.
+ */
+export function createTicketSolution(
+  ticketId: string,
+  refresh = false,
+): Promise<ApiResult<unknown>> {
+  return post(`/api/requests/${ticketId}/solution${refresh ? '?refresh=true' : ''}`, {});
+}
+
+/**
+ * 답변 초안을 만든다. 사람이 고른 확인 항목만 반영된다.
+ * sourceMessageId를 주면 서버가 말투별로 초안을 저장해, 새로고침해도 남는다.
+ */
 export function createReplyDraft(
   ticketId: string,
-  input: { selectedItems: string[]; tone: ReplyTone },
+  input: { sourceMessageId: string; selectedItems: string[]; tone: ReplyTone },
 ): Promise<ApiResult<{ body: string }>> {
   return post<{ body: string }>(`/api/requests/${ticketId}/reply-draft`, {
+    sourceMessageId: input.sourceMessageId,
     selectedItems: input.selectedItems.slice(0, 6),
     tone: input.tone,
   });

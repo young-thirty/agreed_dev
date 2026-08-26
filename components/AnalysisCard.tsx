@@ -6,18 +6,26 @@ import type { AnalysisField, Intent } from '@/types';
 
 export function AnalysisCard({
   headline,
+  reason,
   intents,
   fields,
   missingInfo,
 }: {
   headline: string;
+  /** 그렇게 판단한 이유. 없으면 자리를 만들지 않는다. */
+  reason: string;
   intents: Intent[];
   fields: AnalysisField[];
   missingInfo: string[];
 }) {
   return (
     <div className="rounded-lg bg-surface shadow-card">
-      <p className="p-5 text-[15px] font-medium leading-relaxed text-ink">{headline}</p>
+      <div className="p-5">
+        <p className="text-[15px] font-medium leading-relaxed text-ink">{headline}</p>
+        {reason !== '' && (
+          <p className="mt-2 text-sm leading-relaxed text-ink-muted">{reason}</p>
+        )}
+      </div>
 
       {intents.length > 0 && (
         <div className="border-t border-line p-5">

@@ -13,15 +13,16 @@ import { AnalysisRunner } from '@/components/AnalysisRunner';
 import { ChannelChip } from '@/components/channelMeta';
 import { DecisionPanel } from '@/components/DecisionPanel';
 import { DevContextSection } from '@/components/DevContextSection';
+import { FeasibilityCard } from '@/components/FeasibilityCard';
 import { FlowSection } from '@/components/FlowSection';
 import { MaterialList } from '@/components/MaterialList';
 import { MessageBody } from '@/components/MessageBody';
 import { ReplyDraft } from '@/components/ReplyDraft';
 import { Sender } from '@/components/Sender';
+import { SolutionRunner } from '@/components/SolutionRunner';
 import { saveDecision } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import type {
-  Handling,
   Inbound,
   InboundDecision,
   Project,
@@ -56,29 +57,18 @@ export function MessageFlow({
   const { analysis } = inbound;
   // 프로젝트 전체 자료(ticketId가 없는 것)는 파일 탭에서 본다. 여기서는 이 대화 것만.
   const attachments = materials.filter((item) => item.ticketId === ticket.ticketId);
-
-  async function choose(handling: Handling | null) {
-    setMessage(null);
-    const res = await saveDecision(ticket.ticketId, {
-      sourceMessageId: inbound.inboundId,
-      handling,
-      values: decision.values,
-      ticketProposal: handling === 'create' ? analysis.ticketProposal : null,
-    });
-    if (!res.ok) {
-      setMessage(res.error);
-      return;
-    }
-    onChanged();
-  }
+  // 서버가 필드를 아예 안 보낼 수도 있다. null과 undefined를 같이 걸러 낸다.
+  const feasibility = analysis.feasibility ?? null;
+  // 솔루션까지 나와야 답변을 준비할 수 있다.
+  const ready = analyzed && feasibility !== null;
 
   async function changeValue(fieldId: string, value: string) {
     setMessage(null);
     const res = await saveDecision(ticket.ticketId, {
       sourceMessageId: inbound.inboundId,
-      handling: decision.handling,
+      // 인바운드가 작업 단위로 들어온 순간 이미 티켓이다. 반영 여부를 묻지 않는다.
+      handling: 'link',
       values: { ...decision.values, [fieldId]: value },
-      ticketProposal: decision.handling === 'create' ? analysis.ticketProposal : null,
     });
     if (!res.ok) {
       setMessage(res.error);
@@ -117,40 +107,42 @@ export function MessageFlow({
         hint={analyzed ? 'AI가 확인한 내용입니다' : undefined}
         last={!analyzed}
       >
-        {analyzed ? (
+        {!analyzed ? (
+          <AnalysisRunner onRefresh={onChanged} />
+        ) : feasibility === null ? (
+          // 서버 분석은 끝났지만 솔루션 패키지가 아직 없다. 열었을 때 한 번 만든다.
+          <SolutionRunner ticketId={ticket.ticketId} onDone={onChanged} />
+        ) : (
           <div className="flex flex-col gap-3">
             <AnalysisCard
               headline={analysis.headline}
+              reason={analysis.adviceReason}
               intents={analysis.intents}
               fields={analysis.fields}
               missingInfo={analysis.missingInfo}
             />
 
+            <FeasibilityCard feasibility={feasibility} />
+
             <DevContextSection projectId={project.projectId} subject={ticket.title} />
           </div>
-        ) : (
-          <AnalysisRunner onRefresh={onChanged} />
         )}
       </FlowSection>
 
-      {/* 3 — 사람의 판단 */}
-      {analyzed && (
-        <FlowSection step={3} label="내 판단" hint="여기서부터는 사람이 정합니다">
+      {/* 3 — 답변 준비 */}
+      {ready && (
+        <FlowSection step={3} label="답변 준비" hint="여기서부터는 사람이 정합니다">
           <div className="flex flex-col gap-3">
             <DecisionPanel
+              ticketId={ticket.ticketId}
               analysis={analysis}
               decision={decision}
-              relatedTicket={null}
-              currentTicket={ticket}
-              splitTicket={null}
               selectedItems={selectedItems}
               onToggleItem={(text) =>
                 setSelectedItems((prev) =>
                   prev.includes(text) ? prev.filter((item) => item !== text) : [...prev, text],
                 )
               }
-              onChoose={choose}
-              onClear={() => choose(null)}
               onValueChange={changeValue}
             />
             {message !== null && (
@@ -163,24 +155,18 @@ export function MessageFlow({
       )}
 
       {/* 4 — 답변 초안 */}
-      {analyzed && (
+      {ready && (
         <FlowSection step={4} label="답변 초안" last>
-          {decision.handling === null ? (
-            <p className="rounded-lg bg-surface px-5 py-4 text-sm text-ink-faint shadow-card">
-              위에서 처리 방식을 정하면 그 판단을 반영한 답변 초안을 만들어 드립니다.
-            </p>
-          ) : (
-            <ReplyDraft
-              ticketId={ticket.ticketId}
-              sourceMessageId={inbound.inboundId}
-              fields={analysis.decisionFields}
-              values={decision.values}
-              selectedItems={selectedItems}
-              savedReplyText={decision.replyText}
-              sentAt={decision.sentAt}
-              onSent={onChanged}
-            />
-          )}
+          <ReplyDraft
+            ticketId={ticket.ticketId}
+            sourceMessageId={inbound.inboundId}
+            fields={analysis.decisionFields}
+            values={decision.values}
+            selectedItems={selectedItems}
+            savedReplyText={decision.replyText}
+            sentAt={decision.sentAt}
+            onSent={onChanged}
+          />
         </FlowSection>
       )}
     </div>
