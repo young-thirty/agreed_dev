@@ -80,7 +80,7 @@ export default function ProjectsPage() {
                     >
                       답변 안 한 요청 {project.unansweredRequestCount}건
                     </span>
-                    <span className="text-ink-faint">Active 티켓 {activeTickets}건</span>
+                    <span className="text-ink-faint">진행 중 {activeTickets}건</span>
                   </div>
                 </Link>
               </li>

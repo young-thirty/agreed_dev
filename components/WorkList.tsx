@@ -14,14 +14,14 @@ import { previewLine } from '@/lib/email-clean';
 import { relativeTime } from '@/lib/format';
 import type { WorkItem, WorkStage } from '@/types';
 
-type Filter = 'todo' | 'all' | 'Active' | 'Done' | 'Reject';
+// 진행 중은 티켓의 기본값이라 거르는 값이 되지 않는다. 끝난 것만 따로 본다.
+type Filter = 'todo' | 'all' | 'Done' | 'Reject';
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'todo', label: '처리 필요' },
   { key: 'all', label: '전체' },
-  { key: 'Active', label: 'Active' },
-  { key: 'Done', label: 'Done' },
-  { key: 'Reject', label: 'Reject' },
+  { key: 'Done', label: '완료' },
+  { key: 'Reject', label: '거절' },
 ];
 
 const needsWork = (stage: WorkStage) => stage === 'to_analyze' || stage === 'to_reply';

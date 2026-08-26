@@ -19,17 +19,25 @@ export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
   );
 }
 
-/** 티켓 상태. 진행 중인 것만 색이 살아 있고, 끝난 것은 조용해진다. */
-export const TICKET_STATUS_TONE: Record<TicketStatus, BadgeTone> = {
-  Active: 'success',
+/**
+ * 티켓 상태 배지. 진행 중(Active)에는 붙이지 않는다.
+ * 티켓은 만들어진 순간부터 계속 진행 중이라, 모든 줄에 같은 배지가 붙으면 뜻이 없다.
+ */
+const TICKET_STATUS_TONE: Record<Exclude<TicketStatus, 'Active'>, BadgeTone> = {
   Done: 'neutral',
   Reject: 'danger',
 };
 
+const TICKET_STATUS_LABEL: Record<Exclude<TicketStatus, 'Active'>, string> = {
+  Done: '완료',
+  Reject: '거절',
+};
+
 export function TicketStatusBadge({ status }: { status: TicketStatus }) {
+  if (status === 'Active') return null;
   return (
     <Badge tone={TICKET_STATUS_TONE[status]} dot>
-      {status}
+      {TICKET_STATUS_LABEL[status]}
     </Badge>
   );
 }
