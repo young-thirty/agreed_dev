@@ -4,16 +4,21 @@
 // 상태는 사람이 직접 고른다. AI가 Active·Done으로 바꾸지 않는다.
 
 import { Badge } from '@/components/Badge';
+import { ChannelChip } from '@/components/channelMeta';
+import { TicketStatusControl } from '@/components/TicketStatusControl';
 import { previewLine } from '@/lib/email-clean';
 import { relativeTime } from '@/lib/format';
-import { TICKET_STATUS, type Ticket, type TicketStatus } from '@/types';
+import type { Channel, Ticket, TicketStatus } from '@/types';
 
 export function TicketCard({
   ticket,
+  channel,
   highlighted = false,
   onStatusChange,
 }: {
   ticket: Ticket;
+  /** 어느 채널로 온 티켓인지. 아직 답하지 않은 메시지가 있을 때만 알 수 있다. */
+  channel: Channel | null;
   /** 인박스에서 방금 반영한 티켓이면 눈에 띄게 둔다. */
   highlighted?: boolean;
   onStatusChange: (status: TicketStatus) => void;
@@ -29,25 +34,14 @@ export function TicketCard({
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <Badge tone="neutral">{ticket.category}</Badge>
+          <div className="flex items-center gap-1.5">
+            {channel !== null && <ChannelChip channel={channel} />}
+            <Badge tone="neutral">{ticket.category}</Badge>
+          </div>
           <p className="mt-1.5 text-sm font-medium text-ink">{ticket.title}</p>
         </div>
 
-        <label className="flex shrink-0 items-center gap-2">
-          <span className="sr-only">티켓 상태</span>
-          <span className={`size-1.5 rounded-full ${DOT[ticket.status]}`} />
-          <select
-            value={ticket.status}
-            onChange={(e) => onStatusChange(e.target.value as TicketStatus)}
-            className="rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-accent"
-          >
-            {TICKET_STATUS.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-        </label>
+        <TicketStatusControl status={ticket.status} size="sm" onChange={onStatusChange} />
       </div>
 
       <dl className="mt-3 grid grid-cols-[76px_1fr] gap-x-4 gap-y-2 text-sm">
@@ -71,10 +65,3 @@ export function TicketCard({
     </li>
   );
 }
-
-/** 상태 점. 배지와 같은 색 체계를 쓴다. */
-const DOT: Record<TicketStatus, string> = {
-  Active: 'bg-success',
-  Done: 'bg-ink-faint',
-  Reject: 'bg-danger',
-};

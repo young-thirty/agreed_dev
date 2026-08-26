@@ -127,8 +127,8 @@ export default function ProjectPage() {
           {tab === 'tickets' && (
             <>
               <p className="text-xs text-ink-faint">
-                고객 메시지가 오면 티켓이 Active로 만들어집니다. 요구사항 확정과 상태 변경은 사람이
-                직접 합니다.
+                고객 메시지가 오면 티켓이 만들어져 그때부터 진행 중입니다. 완료·거절은 사람이 직접
+                누를 때만 바뀝니다.
               </p>
 
               {message !== null && (
@@ -147,6 +147,7 @@ export default function ProjectPage() {
                     <TicketCard
                       key={item.ticket.ticketId}
                       ticket={item.ticket}
+                      channel={item.pending?.channel ?? null}
                       onStatusChange={(status) => onStatusChange(item.ticket.ticketId, status)}
                     />
                   ))}
