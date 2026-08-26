@@ -3,15 +3,18 @@
 // 사용자가 가장 먼저 보는 목록. 단위는 티켓이다.
 // 새 고객 메시지는 관련 티켓에 붙고, 관련 티켓이 없으면 Active 티켓으로 새로 들어온다.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { FolderKanban, Search, X } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { FolderKanban, RefreshCw, Search, X } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
 import { ChannelChip } from '@/components/channelMeta';
+import { IncomingToast, type Arrived } from '@/components/IncomingToast';
 import { TicketStatusBadge } from '@/components/StatusBadges';
+import { DEMO } from '@/lib/api-client';
 import { previewLine } from '@/lib/email-clean';
 import { relativeTime } from '@/lib/format';
+import { deliverNextIncoming, incomingLeft } from '@/mocks/server';
 import type { WorkItem, WorkStage } from '@/types';
 
 // 진행 중은 티켓의 기본값이라 거르는 값이 되지 않는다. 끝난 것만 따로 본다.
@@ -35,10 +38,27 @@ function hintOf(item: WorkItem, stage: WorkStage): string {
 }
 
 export function WorkList() {
-  const { workItems, projects, loaded, error } = useAppStore();
+  const { workItems, projects, loaded, error, reload } = useAppStore();
   const params = useParams<{ id?: string }>();
+  const router = useRouter();
   const [filter, setFilter] = useState<Filter>('todo');
   const [query, setQuery] = useState('');
+
+  // 시연용: 새 고객 메시지를 하나 받아와 티켓을 만든다. 남은 게 없으면 버튼을 막는다.
+  const [demoLeft, setDemoLeft] = useState(0);
+  const [arrived, setArrived] = useState<Arrived | null>(null);
+
+  useEffect(() => {
+    if (DEMO) setDemoLeft(incomingLeft());
+  }, []);
+
+  async function receiveDemoTicket() {
+    const next = deliverNextIncoming();
+    setDemoLeft(incomingLeft());
+    if (next === null) return;
+    setArrived(next);
+    await reload();
+  }
 
   const counts = useMemo(() => {
     const todo = workItems.filter((item) => needsWork(item.workStage)).length;
@@ -74,8 +94,33 @@ export function WorkList() {
 
   return (
     <div className="flex h-full w-[380px] shrink-0 flex-col border-r border-line bg-surface">
+      {arrived !== null && (
+        <IncomingToast
+          arrived={arrived}
+          onOpen={() => {
+            router.push(`/tickets/${arrived.ticketId}`);
+            setArrived(null);
+          }}
+          onClose={() => setArrived(null)}
+        />
+      )}
+
       <div className="px-5 pb-3 pt-5">
-        <h1 className="text-base font-semibold tracking-tight">티켓</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-base font-semibold tracking-tight">티켓</h1>
+          {DEMO && (
+            <button
+              type="button"
+              onClick={receiveDemoTicket}
+              disabled={demoLeft === 0}
+              aria-label="새 티켓 받기(시연용 새로고침)"
+              title="시연용: 새 고객 메시지를 하나 받아옵니다"
+              className="ml-auto rounded-md p-1.5 text-ink-faint transition-colors hover:bg-paper hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <RefreshCw className="size-3.5" />
+            </button>
+          )}
+        </div>
         <p className="mt-0.5 text-xs text-ink-faint">
           고객 메시지는 관련 티켓에 붙고, 관련 티켓이 없으면 새 티켓으로 들어옵니다.
         </p>

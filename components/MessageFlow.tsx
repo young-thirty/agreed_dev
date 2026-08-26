@@ -15,6 +15,7 @@ import { DecisionPanel } from '@/components/DecisionPanel';
 import { DevContextSection } from '@/components/DevContextSection';
 import { EvidenceList } from '@/components/EvidenceList';
 import { FeasibilityCard } from '@/components/FeasibilityCard';
+import { FileViewerModal } from '@/components/FileViewerModal';
 import { FlowSection } from '@/components/FlowSection';
 import { MaterialList } from '@/components/MaterialList';
 import { MessageBody } from '@/components/MessageBody';
@@ -24,6 +25,7 @@ import { SolutionRunner } from '@/components/SolutionRunner';
 import { saveDecision } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import type {
+  Evidence,
   Inbound,
   InboundDecision,
   Project,
@@ -55,6 +57,11 @@ export function MessageFlow({
   const [message, setMessage] = useState<string | null>(null);
   // 답변에 반영할 확인 항목. 서버 decision에는 자리가 없어 이 화면에서만 들고 있다.
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  // 근거로 인용된 문서를 열어 볼 때. 어느 근거를 열었는지도 같이 들고 있어야 그 원문으로 스크롤한다.
+  const [viewingEvidence, setViewingEvidence] = useState<{
+    material: ProjectMaterial;
+    quote: string;
+  } | null>(null);
   const { analysis } = inbound;
   // 프로젝트 전체 자료(ticketId가 없는 것)는 파일 탭에서 본다. 여기서는 이 대화 것만.
   const attachments = materials.filter((item) => item.ticketId === ticket.ticketId);
@@ -76,6 +83,14 @@ export function MessageFlow({
       return;
     }
     onChanged();
+  }
+
+  // 근거 제목은 "파일이름 · 위치" 형식이다. 파일이름으로 실제 자료를 찾는다.
+  function openEvidenceDocument(item: Evidence) {
+    const fileName = item.title.split(' · ')[0];
+    const material = materials.find((m) => m.fileName === fileName);
+    if (material === undefined) return;
+    setViewingEvidence({ material, quote: item.quote });
   }
 
   return (
@@ -125,7 +140,7 @@ export function MessageFlow({
 
             <FeasibilityCard feasibility={feasibility} />
 
-            <EvidenceList evidence={analysis.evidence} />
+            <EvidenceList evidence={analysis.evidence} onViewDocument={openEvidenceDocument} />
 
             <DevContextSection
               projectId={project.projectId}
@@ -175,6 +190,16 @@ export function MessageFlow({
             onSent={onChanged}
           />
         </FlowSection>
+      )}
+
+      {viewingEvidence !== null && (
+        <FileViewerModal
+          fileName={viewingEvidence.material.fileName}
+          mimeType={viewingEvidence.material.mimeType ?? ''}
+          fetchPath={`/api/projects/${project.projectId}/materials/${viewingEvidence.material.materialId}/file`}
+          highlightQuote={viewingEvidence.quote}
+          onClose={() => setViewingEvidence(null)}
+        />
       )}
     </div>
   );

@@ -7,16 +7,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Inbox, Play, RotateCcw, X } from 'lucide-react';
+import { Play, RotateCcw, X } from 'lucide-react';
 import { useAppStore } from '@/components/AppStore';
+import { IncomingToast, type Arrived } from '@/components/IncomingToast';
 import { DEMO } from '@/lib/api-client';
 import { deliverNextIncoming, incomingLeft, resetDemo } from '@/mocks/server';
-
-interface Arrived {
-  ticketId: string;
-  title: string;
-  from: string;
-}
 
 export function DemoPanel() {
   const router = useRouter();
@@ -25,10 +20,11 @@ export function DemoPanel() {
   const [left, setLeft] = useState(0);
   const [arrived, setArrived] = useState<Arrived | null>(null);
 
-  // 남은 메시지 수는 브라우저에만 있다. 첫 렌더가 끝난 뒤에 읽는다.
+  // 남은 메시지 수는 브라우저에만 있다. 첫 렌더와, 티켓 목록 쪽에서 받아왔을 수 있으니
+  // 패널을 열 때마다 다시 읽는다.
   useEffect(() => {
-    if (DEMO) setLeft(incomingLeft());
-  }, []);
+    if (DEMO && open) setLeft(incomingLeft());
+  }, [open]);
 
   if (!DEMO) return null;
 
@@ -49,33 +45,14 @@ export function DemoPanel() {
     <>
       {/* 새 메시지 알림. 눌러서 바로 그 티켓으로 간다. */}
       {arrived !== null && (
-        <div className="fixed left-1/2 top-5 z-50 w-[380px] -translate-x-1/2">
-          <div className="flex items-start gap-3 rounded-lg bg-surface px-4 py-3.5 shadow-card-hover">
-            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft">
-              <Inbox className="size-3.5 text-accent" />
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                router.push(`/tickets/${arrived.ticketId}`);
-                setArrived(null);
-              }}
-              className="min-w-0 flex-1 text-left"
-            >
-              <p className="text-xs text-ink-faint">{arrived.from} 님의 새 메시지가 도착했습니다</p>
-              <p className="mt-0.5 truncate text-sm font-medium text-ink">{arrived.title}</p>
-              <p className="mt-1 text-xs text-accent">열어서 분석 보기</p>
-            </button>
-            <button
-              type="button"
-              aria-label="알림 닫기"
-              onClick={() => setArrived(null)}
-              className="rounded p-1 text-ink-faint transition-colors hover:text-ink"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        </div>
+        <IncomingToast
+          arrived={arrived}
+          onOpen={() => {
+            router.push(`/tickets/${arrived.ticketId}`);
+            setArrived(null);
+          }}
+          onClose={() => setArrived(null)}
+        />
       )}
 
       <div className="fixed bottom-5 right-5 z-40">

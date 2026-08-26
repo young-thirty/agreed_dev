@@ -16,7 +16,14 @@ const SOURCE: Record<Evidence['source'], { icon: typeof FileText; className: str
   message: { icon: Mail, className: 'text-ink-faint' },
 };
 
-export function EvidenceList({ evidence }: { evidence: Evidence[] }) {
+export function EvidenceList({
+  evidence,
+  onViewDocument,
+}: {
+  evidence: Evidence[];
+  /** 문서 근거를 눌렀을 때. 없으면 문서도 눌리지 않는다. */
+  onViewDocument?: (item: Evidence) => void;
+}) {
   const [open, setOpen] = useState(false);
 
   if (evidence.length === 0) return null;
@@ -60,8 +67,9 @@ export function EvidenceList({ evidence }: { evidence: Evidence[] }) {
         <ul className="border-t border-line">
           {evidence.map((item) => {
             const { icon: Icon, className } = SOURCE[item.source];
-            return (
-              <li key={item.title} className="border-b border-line px-5 py-3.5 last:border-b-0">
+            const clickable = item.source === 'document' && onViewDocument !== undefined;
+            const body = (
+              <>
                 <p className="flex items-center gap-2 text-xs text-ink-faint">
                   <Icon className={`size-3.5 shrink-0 ${className}`} />
                   <span className="font-medium text-ink-muted">{item.label}</span>
@@ -70,6 +78,25 @@ export function EvidenceList({ evidence }: { evidence: Evidence[] }) {
                 <p className="mt-2 border-l-2 border-line pl-3 text-sm leading-relaxed text-ink">
                   “{item.quote}”
                 </p>
+                {clickable && (
+                  <p className="mt-2 text-xs text-accent">문서에서 원문 위치 보기</p>
+                )}
+              </>
+            );
+
+            return (
+              <li key={item.title} className="border-b border-line last:border-b-0">
+                {clickable ? (
+                  <button
+                    type="button"
+                    onClick={() => onViewDocument?.(item)}
+                    className="block w-full px-5 py-3.5 text-left transition-colors hover:bg-paper"
+                  >
+                    {body}
+                  </button>
+                ) : (
+                  <div className="px-5 py-3.5">{body}</div>
+                )}
               </li>
             );
           })}
